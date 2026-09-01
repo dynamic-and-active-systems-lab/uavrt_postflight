@@ -1,0 +1,20 @@
+# macOS
+.DS_Store
+._*
+
+# Local agent settings
+.claude/settings.local.json
+
+# Pre-rewrite originals and editor backups - kept locally, not shared
+*_BACKUP_*
+*.bak
+*.asv
+
+# MATLAB build/scratch artifacts
+*.mex*
+slprj/
+codegen/
+
+# Exported products - regenerate from a pulse log rather than committing
+*.kmz
+*.kml
