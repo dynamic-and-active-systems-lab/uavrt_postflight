@@ -10,11 +10,15 @@ LOGS   ?=
 pulseplotter-guide.pdf: pulseplotter-guide.tex $(wildcard figures/*)
 	latexmk -pdf -interaction=nonstopmode -halt-on-error $<
 
-.PHONY: figures clean all
-all: figures pulseplotter-guide.pdf
+.PHONY: figures screenshots clean all
+all: figures screenshots pulseplotter-guide.pdf
 
 figures:
 	$(PYTHON) make_figures.py $(LOGS)
+
+# macOS only, and needs Screen Recording permission. See make_screenshots.py.
+screenshots:
+	$(PYTHON) make_screenshots.py
 
 clean:
 	latexmk -C

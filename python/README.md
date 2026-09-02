@@ -7,9 +7,9 @@ outputs, same numbers.
 
 ![what it looks like](preview.png)
 
-*This screenshot predates the 2026-09-02 layout rework: the controls are now
-grouped into labelled sections, and the matplotlib toolbar sits between the
-plot and the range sliders rather than on top of them. Worth retaking.*
+*The Day 5 Cumbria log, tag 42 selected. See
+[`../DOCS/pulseplotter-guide.pdf`](../DOCS/pulseplotter-guide.pdf) for the full
+user guide.*
 
 ## Install
 
