@@ -20,6 +20,47 @@ TagTracker (GCS)  ──writes──>  Pulse-<timestamp>.csv
 
 The detection side of the system lives in [`uavrt_detection`](https://github.com/dynamic-and-active-systems-lab/uavrt_detection) and [`MavlinkTagController2`](https://github.com/DonLakeFlyer/MavlinkTagController2); the ground station is [`TagTracker`](https://github.com/DonLakeFlyer/TagTracker). This repository picks up after the aircraft lands.
 
+## Two implementations
+
+The same tool exists twice: the original MATLAB application and a Python port. **Both are maintained. Neither is deprecated.**
+
+| | `matlab/` | `python/` |
+|---|---|---|
+| Run it | `clear classes; pulseplotter2` | `python pulseplotter.py` |
+| Needs | MATLAB (base install, no toolboxes) | Python 3.8+, numpy, matplotlib |
+| Licence cost | MATLAB licence required | none |
+| GUI | App Designer / `uifigure` | tkinter + matplotlib |
+| Automated tests | none | `test_core.py`, `test_gui.py` |
+| Also contains | `MONOPOLE_SCAN_MAPPING.m`, an antenna-pattern analysis script | — |
+
+**Which to use.** If you have MATLAB and are already working in it, `matlab/` is the original and the one the PI uses. If you do not have a MATLAB licence — which is most field collaborators, and most people who find this repository — `python/` gives you the whole tool for free.
+
+**Why both exist.** The MATLAB version was written first and carries the project's history. The Python port removes the licence as a barrier to adoption, which matters for an open-source instrument intended for wildlife biologists rather than engineering labs. Keeping both is a deliberate cost: a change to the analysis has to be made twice, or it diverges.
+
+**They are meant to agree.** Same inputs, same outputs, same numbers. If you find a case where they disagree, that is a bug in one of them — please report it with the pulse log that shows it.
+
+### Feature parity
+
+Verified by source comparison on 2026-09-02. The Python port implements every control and feature of `pulseplotter2.m`:
+
+- Load any TagTracker pulse log, all four header variants, rotation records rejected
+- Tag selection; axis modes `x, y` and `Lon, Lat`; properties `SNR`, `STFT Score`, `Time`, `Altitude (m)`
+- Value and Divergence plot modes
+- Grid resolution and smoothing window
+- Time-range and SNR-range filters
+- Takeoff elevation
+- Optional known-tag marker at a given latitude/longitude
+- Three saved bearing slots plus Off, with save and clear
+- Gradient bearing estimate reporting bearing, confidence and spread
+- KMZ export: styles declared once and referenced by `styleUrl`, marker icon packaged inside the archive, interpolated surface as a GroundOverlay raster, contour lines in a separate folder switched off by default
+
+Differences, none of them functional gaps in the port:
+
+- `MONOPOLE_SCAN_MAPPING.m` is MATLAB-only. It is a standalone antenna-pattern analysis script, not part of the plotter.
+- `matlab/` ships the app twice — `pulseplotter2.m` and `pulseplotter.mlapp` — which is a MATLAB packaging quirk, not a second implementation. See `CLAUDE.md`.
+- The Python version has automated tests; the MATLAB version does not.
+- Neither has been checked numerically against the other on a shared pulse log. The port was verified by reading both sources, and the Python tests assert MATLAB semantics for things like `movmean`, but no side-by-side run on real data has been done. That is the obvious next step, and until it is done "same numbers" is an intention rather than a measurement.
+
 ## Requirements
 
 MATLAB, base install only — **no toolboxes**. That is deliberate: the app runs on a bare MATLAB, and the numeric core is plain arithmetic and string building so it ports cleanly to other platforms.
@@ -29,13 +70,30 @@ Previously required and now removed: Automated Driving Toolbox (`latlon2local`/`
 ## Quick start
 
 ```matlab
+cd matlab
 clear classes        % MATLAB caches classdefs - do not skip after an edit
 pulseplotter2
+```
+
+or, with no MATLAB licence:
+
+```bash
+cd python
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+python pulseplotter.py
 ```
 
 **Load Data** → choose a `Pulse-*.csv` → **Export KML** writes a `.kmz`.
 
 ## Contents
+
+```
+matlab/    the original MATLAB application
+python/    the Python port
+```
+
+### `matlab/`
 
 | File | Purpose |
 |---|---|
@@ -47,6 +105,19 @@ pulseplotter2
 | `MONOPOLE_SCAN_MAPPING.m` | Standalone antenna-pattern analysis script sharing the same helpers. |
 
 The four helper functions must sit alongside the app — it calls them by name. Moving the `.mlapp` on its own, or packaging it as a MATLAB App, breaks it unless the helpers come too.
+
+### `python/`
+
+| File | Purpose |
+|---|---|
+| `pulseplotter.py` | The application. Run this one. |
+| `readpulsetable.py` | Pulse-log reader, same four variants. |
+| `kmzwrite.py` | KMZ writer. |
+| `geodesy.py` | Geodetic ↔ local ENU conversion. |
+| `analysis.py` | Gridding, smoothing, gradient bearing, divergence. |
+| `test_core.py` / `test_gui.py` | Automated tests. |
+
+See `python/README.md` for install and virtual-environment guidance.
 
 ## Pulse log formats
 

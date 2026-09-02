@@ -1,0 +1,4 @@
+# pulseplotter (Python) dependencies.
+# tkinter is part of the Python standard library and is not listed here.
+numpy>=1.20
+matplotlib>=3.5

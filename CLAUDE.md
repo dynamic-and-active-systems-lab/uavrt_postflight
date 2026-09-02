@@ -24,10 +24,10 @@ There are two copies of the same app:
 
 | | Use when |
 |---|---|
-| `pulseplotter2.m` | **Default.** Plain classdef. Safe to edit from outside MATLAB. |
-| `pulseplotter.mlapp` | Only when you need App Designer's visual canvas editor. |
+| `matlab/pulseplotter2.m` | **Default.** Plain classdef. Safe to edit from outside MATLAB. |
+| `matlab/pulseplotter.mlapp` | Only when you need App Designer's visual canvas editor. |
 
-They contain identical code apart from the class name. `pulseplotter2.m` exists
+They contain identical code apart from the class name. `matlab/pulseplotter2.m` exists
 because App Designer silently overwrites external edits to the `.mlapp` — see
 [Hazards](#hazards-read-before-editing).
 
@@ -37,13 +37,13 @@ because App Designer silently overwrites external edits to the `.mlapp` — see
 
 | File | Lines | Purpose |
 |---|---|---|
-| `pulseplotter2.m` | 1050 | The app. Run this. |
-| `pulseplotter.mlapp` | 1047 | Same code, App Designer package. |
-| `readpulsetable.m` | 121 | Reads any TagTracker pulse-log format into a table. |
-| `geo2enu.m` | 35 | Geodetic → local ENU. Replaces `latlon2local`. |
-| `enu2geo.m` | 33 | Local ENU → geodetic. Replaces `local2latlon`. |
-| `kmzwrite.m` | 341 | Writes the KMZ. Replaces the kmltoolbox. |
-| `MONOPOLE_SCAN_MAPPING.m` | 281 | Standalone analysis script; shares all four helpers. |
+| `matlab/pulseplotter2.m` | 1050 | The app. Run this. |
+| `matlab/pulseplotter.mlapp` | 1047 | Same code, App Designer package. |
+| `matlab/readpulsetable.m` | 121 | Reads any TagTracker pulse-log format into a table. |
+| `matlab/geo2enu.m` | 35 | Geodetic → local ENU. Replaces `latlon2local`. |
+| `matlab/enu2geo.m` | 33 | Local ENU → geodetic. Replaces `local2latlon`. |
+| `matlab/kmzwrite.m` | 341 | Writes the KMZ. Replaces the kmltoolbox. |
+| `matlab/MONOPOLE_SCAN_MAPPING.m` | 281 | Standalone analysis script; shares all four helpers. |
 
 The four helpers **must sit alongside the app** — it calls them by name. Moving
 the `.mlapp` on its own, or packaging it as a MATLAB App, breaks it unless they
@@ -153,7 +153,7 @@ has the app open it holds its own copy in memory and writes it back over your
 edit. **Pressing Run saves first**, and so does quitting MATLAB. This reverted
 the same change three times before it was diagnosed.
 
-Before editing `pulseplotter.mlapp`:
+Before editing `matlab/pulseplotter.mlapp`:
 
 ```bash
 pgrep -fl MATLAB                                   # must be empty; check the PID is really gone
@@ -174,7 +174,7 @@ diff <(unzip -p pulseplotter.mlapp matlab/document.xml \
 
 How to tell App Designer did it rather than sync: each reverted file had a
 *different* byte size and a different `appdesigner/appModel.mat` hash, meaning
-the package was re-zipped, not restored. **Prefer editing `pulseplotter2.m`** —
+the package was re-zipped, not restored. **Prefer editing `matlab/pulseplotter2.m`** —
 App Designer does not own it.
 
 **MATLAB cannot be run from the command line here.** Both R2024b and R2025a fail
@@ -214,10 +214,17 @@ exists) before trusting a "no results" answer.
 
 ## Open items
 
+- **The gradient bearing estimator is known to fail where there is significant topography near the
+  drone.** The method assumes the interpolated SNR surface slopes monotonically toward the
+  transmitter; nearby terrain breaks that assumption. Known from field experience (PI, 2026-09-01).
+  This is a *separate* problem from the lack of ground-truth validation below. Consistent with
+  Mohammadi 2026, which reports peak signal occurring slightly downhill of the tag rather than above
+  it. Treat the estimator as experimental, and prefer the directional antenna and triangulation where
+  terrain is a factor.
 - **The bearing estimator has never been checked against ground truth.** Cumbria
   Tag 42 is the obvious test — the true tag position is known. Do this before the
   estimator gets baked into a mobile port.
-- `MONOPOLE_SCAN_MAPPING.m` still has hard-coded absolute paths to
+- `matlab/MONOPOLE_SCAN_MAPPING.m` still has hard-coded absolute paths to
   `FLIGHT_TESTING_DATA`, some under a stale `/Users/mshafer/` username (those
   lines are commented out). It also calls `system('open …')` to launch Google
   Earth, replicating the old `f.run`.
