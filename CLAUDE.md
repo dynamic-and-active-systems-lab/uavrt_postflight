@@ -121,10 +121,16 @@ exactly rectangular lat/lon box — which is what makes the KML GroundOverlay
 exact rather than approximate.
 
 **Bearing estimate.** The gradient of the interpolated SNR surface points uphill,
-i.e. toward the tag. Averaging `FX`/`FY` directly lets a few steep cells dominate
-and says nothing about whether the field agrees, so `updateAreaPlot` takes the
-**magnitude-weighted circular mean of the gradient directions**, excluding NaN
-cells outside the convex hull. It reports:
+i.e. toward the tag. `updateAreaPlot` takes the **magnitude-weighted circular
+mean of the gradient directions**, excluding NaN cells outside the convex hull.
+
+**The weighting does not change the direction.** `w.*ux` is just `fx`, so the
+resultant is the plain vector sum of the gradient and the reported bearing is
+exactly what averaging `FX`/`FY` would give — verified numerically to 1e-14.
+Earlier revisions of this file and of the source comments claimed the circular
+mean stopped a few steep cells dominating the direction; it cannot. What the
+circular form actually adds is `confidence`, which a component average has no
+counterpart for. It reports:
 
 - `bearingDeg` — **compass degrees** (0 = north, clockwise). One convention
   throughout; convert to ENU with `sind`/`cosd`.

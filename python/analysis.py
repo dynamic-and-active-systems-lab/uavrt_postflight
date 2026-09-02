@@ -93,11 +93,15 @@ def build_grid(x_east, y_north, values, grid_res):
 def estimate_bearing(grid, grid_res):
     """Bearing to the tag from the gradient of the interpolated surface.
 
-    The gradient points uphill, i.e. towards the tag. Averaging the gradient
-    components directly lets a handful of steep cells dominate and says nothing
-    about whether the field agrees on a direction, so this takes the
-    magnitude-weighted circular mean of the gradient directions. Cells outside
-    the convex hull are NaN and are excluded rather than averaged in.
+    The gradient points uphill, i.e. towards the tag. This takes the
+    magnitude-weighted circular mean of the gradient directions. Note that the
+    magnitude weight cancels the unit-vector normalisation, w * u == grad, so
+    the resultant is the plain vector sum and the reported *direction* is
+    exactly what averaging the components would give. What the circular form
+    adds is the confidence: the length of the summed vector over the sum of the
+    lengths, which measures whether the field agrees on a direction and has no
+    counterpart in a component average. Cells outside the convex hull are NaN
+    and are excluded rather than averaged in.
 
     Returns (bearing_deg, confidence, spread_deg) where bearing_deg is compass
     degrees (0 = north, clockwise), confidence is the resultant length in 0..1

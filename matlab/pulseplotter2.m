@@ -327,13 +327,15 @@ classdef pulseplotter2 < matlab.apps.AppBase
                 % Bearing estimate.
                 %
                 % The gradient of the interpolated property points uphill,
-                % i.e. towards the tag. Averaging FX and FY directly lets a
-                % handful of steep cells dominate and gives no indication of
-                % whether the field actually agrees on a direction, so this
-                % takes the magnitude-weighted circular mean of the gradient
-                % directions instead. Cells outside the convex hull of the
-                % data are NaN in PROPGrid and are excluded rather than
-                % being averaged in.
+                % i.e. towards the tag. This takes the magnitude-weighted
+                % circular mean of the gradient directions. Note that the
+                % weight cancels the unit-vector normalisation - w.*ux is
+                % just fx - so the resultant is the plain vector sum and the
+                % reported DIRECTION is exactly what averaging FX and FY
+                % would give. What the circular form adds is the confidence
+                % below, which a component average has no counterpart for.
+                % Cells outside the convex hull of the data are NaN in
+                % PROPGrid and are excluded rather than being averaged in.
                 %
                 % confidence is the resultant length: 1 means every cell
                 % points the same way, 0 means the field has no consensus.

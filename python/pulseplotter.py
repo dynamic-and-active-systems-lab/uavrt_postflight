@@ -712,7 +712,7 @@ class PulsePlotter(ttk.Frame):
         self.plot_state = {
             "lat": sub.lat, "lon": sub.lon,
             "alt_abs": zu + self._float(self.elev_var),
-            "prop": prop, "grid": grid,
+            "prop": prop, "grid": grid, "grid_res": grid_res,
             "grid_lat": grid_lat, "grid_lon": grid_lon,
             "property": prop_name, "tag_id": self.tag_var.get(),
             "plot_tag": bool(self.plot_tag_var.get()),

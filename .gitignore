@@ -27,3 +27,13 @@ venv/
 env/
 __pycache__/
 *.pyc
+
+# LaTeX build artifacts from DOCS/. The guide's PDF itself is committed, so
+# people without a TeX install can read it.
+*.aux
+*.fdb_latexmk
+*.fls
+*.out
+*.toc
+*.synctex.gz
+DOCS/*.log

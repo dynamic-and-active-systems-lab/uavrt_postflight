@@ -93,9 +93,17 @@ python pulseplotter.py
 
 **Load Data** → choose a `Pulse-*.csv` → **Export KML** writes a `.kmz`.
 
+## Documentation
+
+**[`DOCS/pulseplotter-guide.pdf`](DOCS/pulseplotter-guide.pdf) is the place to start** — a nine-page
+overview and user guide covering installation for both implementations, a worked example on real
+Cumbria flight data, a control reference, and the mathematics of the bearing estimator with its
+failure modes. Rebuild it with `make -C DOCS all`.
+
 ## Contents
 
 ```
+DOCS/      overview and user guide (LaTeX source + PDF)
 matlab/    the original MATLAB application
 python/    the Python port
 ```
@@ -138,7 +146,7 @@ Output is a table sorted by `start_time_seconds` with stable column names regard
 
 ## Bearing estimate
 
-The gradient of the interpolated SNR surface points toward the tag. Rather than averaging the gradient components directly — which lets a few steep cells dominate and says nothing about whether the field agrees — the estimator takes the magnitude-weighted circular mean of gradient directions, excluding cells outside the convex hull. It reports three numbers, all shown in the plot title:
+The gradient of the interpolated SNR surface points toward the tag. The estimator takes the magnitude-weighted circular mean of gradient directions, excluding cells outside the convex hull. The magnitude weight cancels the unit-vector normalisation, so the reported **direction** is the plain vector sum of the gradient field — the same as a component average. What the circular form adds is the **confidence**, the length of the summed vector over the sum of the lengths, which a component average has no counterpart for. It reports three numbers, all shown in the plot title:
 
 - **bearing** — compass degrees, 0 = north, clockwise
 - **confidence** — resultant length, 0 to 1; 1 means every cell agrees
