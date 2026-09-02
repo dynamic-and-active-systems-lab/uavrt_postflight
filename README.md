@@ -47,7 +47,8 @@ Verified by source comparison on 2026-09-02. The Python port implements every co
 - Tag selection; axis modes `x, y` and `Lon, Lat`; properties `SNR`, `STFT Score`, `Time`, `Altitude (m)`
 - Value and Divergence plot modes
 - Grid resolution and smoothing window
-- Time-range and SNR-range filters
+- Time-range and SNR-range filters, with the time range opening on the flight proper:
+  takeoff and landing are deselected on load, but stay within the slider's limits
 - Takeoff elevation
 - Optional known-tag marker at a given latitude/longitude
 - Three saved bearing slots plus Off, with save and clear

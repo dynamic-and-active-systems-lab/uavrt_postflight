@@ -90,6 +90,55 @@ def build_grid(x_east, y_north, values, grid_res):
     return X, Y, grid, grid_res
 
 
+def flight_window(times, altitudes, min_fraction=0.2):
+    """The span of the flight proper, with takeoff and landing trimmed off.
+
+    A survey flies out at a working altitude and holds it, so the median
+    altitude of the log is the cruise altitude. Everything before the aircraft
+    first reaches it, and everything after it last leaves it, is the climb and
+    the descent: pulses received close to the ground, weaker than the rest, and
+    all clustered around the launch point, which drags the interpolated surface
+    down exactly where the flight starts and ends.
+
+    Only the leading and trailing runs are trimmed, so a mid-flight descent is
+    kept. `times` must be sorted, which is what readpulsetable guarantees.
+
+    This is a default, not a filter: callers set the slider's *value* from it
+    and leave its limits at the full range, so the discarded ends stay one drag
+    away.
+
+    Returns (start, end) in the units of `times`, falling back to the full range
+    when the altitudes cannot support the judgement - all equal, all missing, or
+    a window so short (less than min_fraction of the samples) that the altitude
+    is more likely to be junk than the flight to have been that brief.
+    """
+    times = np.asarray(times, dtype=float)
+    altitudes = np.asarray(altitudes, dtype=float)
+    if times.size == 0:
+        return np.nan, np.nan
+    full = (float(np.nanmin(times)), float(np.nanmax(times)))
+
+    finite = np.isfinite(altitudes) & np.isfinite(times)
+    if np.count_nonzero(finite) < 2:
+        return full
+
+    cruise = float(np.median(altitudes[finite]))
+    above = finite & (altitudes >= cruise)
+    if not np.any(above):
+        return full
+
+    first = int(np.argmax(above))
+    last = int(above.size - 1 - np.argmax(above[::-1]))
+    if last <= first:
+        return full
+
+    start, end = float(times[first]), float(times[last])
+    kept = int(np.count_nonzero((times >= start) & (times <= end)))
+    if kept < max(2, min_fraction * times.size):
+        return full
+    return start, end
+
+
 def estimate_bearing(grid, grid_res):
     """Bearing to the tag from the gradient of the interpolated surface.
 

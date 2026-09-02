@@ -158,6 +158,30 @@ placemark-by-placemark on every slider drag, which is what made the app crawl on
 1000+ pulse logs. `updateAreaPlot` stores a `plotState` snapshot;
 `ExportKMLButtonPushed` does the work.
 
+**Takeoff and landing are deselected on load, not filtered out.** Pulses received
+during the climb and descent are weak and all sit at the launch point, so they
+pull the interpolated surface down in one corner — the PI's report, 2026-09-02.
+The time slider's **Value** now opens on the flight proper while its **Limits**
+stay at the whole log, so the ends are one drag away rather than gone. The rule
+is the median altitude of the log: a survey holds a working height, so the median
+is the cruise altitude, and the leading and trailing runs below it are the climb
+and the descent. Only those two runs are trimmed, so a mid-flight descent
+survives. It falls back to the full range when the altitudes cannot support the
+judgement — all equal, all missing, or a window keeping under 20% of the pulses.
+
+`analysis.flight_window` (Python) and the private `flightWindow` method (MATLAB)
+are the same function; `test_core.py` covers the trapezoid, mid-flight dip,
+constant, all-NaN, single-sample and sliver cases, and `test_gui.py` asserts the
+limits still span the whole log after a load. On the Cumbria logs it keeps 84%
+(Day 5) and 70% (Day 8) of the pulses, and the pulses it drops average 21-27 dB
+against 29-43 dB at cruise.
+
+Two consequences worth knowing. Bearings move a little — 1 to 5 degrees on the
+well-sampled tags, more on sparse ones where the trim removes a large fraction of
+the detections. And **Property = Altitude (m)** now usually yields no surface at
+all on the default window, because the aircraft holds one altitude; widen the
+slider to get it back.
+
 **The window is built from grids, not `Position` vectors.** App Designer's
 generated `createComponents` placed every control at an absolute pixel position
 inside a panel. That is fine at exactly the size it was drawn at and wrong

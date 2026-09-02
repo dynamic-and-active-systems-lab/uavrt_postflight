@@ -143,8 +143,24 @@ Then: **Load Data** → pick a `Pulse-*.csv` → the plot appears → **Export K
 | **Elev (m)** | Takeoff elevation, m MSL. Added to the relative pulse altitudes when writing KML. |
 | **Plot Property** | Show the interpolated value, or its divergence. |
 | **Tag Lat / Lon**, **Plot Tag** | Draw a known tag position for comparison. |
-| **Time / SNR sliders** | Two sliders each, a lower and an upper bound. Replots on release. |
+| **Time / SNR sliders** | Two sliders each, a lower and an upper bound. Replots on release. The time slider opens on the flight proper — see below. |
 | **Active Bearing** | Save the current bearing into one of three slots to compare across flight segments. |
+
+### Takeoff and landing
+
+A flight starts and ends at the ground, and those pulses are weak and all
+clustered at the launch point, so they drag the interpolated surface down in one
+corner. The time slider therefore **opens on the flight proper**: the median
+altitude of the log is the cruise altitude, and everything before the aircraft
+first reaches it or after it last leaves it is climb or descent. Only the
+leading and trailing runs are trimmed, so a deliberate mid-flight descent is
+kept.
+
+Nothing is discarded — the slider's limits still cover the whole log, only its
+handles start inside. Drag the left handle to zero and the takeoff reappears. If
+the altitudes cannot support the judgement (all equal, all missing, or a window
+so short the altitude is more likely junk) it opens on the whole log as before.
+`analysis.flight_window` does the work and is covered by `test_core.py`.
 
 The plot title carries the bearing, e.g.
 `bearing 168.4° (conf 0.42, ±75°)`.

@@ -41,6 +41,21 @@ FIG_SIZE_HALF = (4.9, 3.5)
 DPI = 200
 
 
+def set_time_range(app, lo=None, hi=None):
+    """Drive the time slider. With no arguments, widen it to the whole log -
+    which is what a user does to look at takeoff and landing."""
+    lo = float(app.time_lo.cget("from")) if lo is None else lo
+    hi = float(app.time_hi.cget("to")) if hi is None else hi
+    app.time_lo.set(lo)
+    app.time_hi.set(hi)
+    app.update_plot()
+
+
+def default_time_range(app):
+    """The window on_load chose: the flight proper, takeoff and landing off."""
+    return app._slider_range(app.time_lo, app.time_hi)
+
+
 def save(app, name, size=FIG_SIZE):
     app.figure.set_size_inches(*size)
     app.canvas.draw()
@@ -87,11 +102,26 @@ def main(argv):
         app.update_plot()
         save(app, "plot-day5-tag%s.pdf" % tag, FIG_SIZE_HALF)
 
+    # The altitude caution needs the whole flight: with takeoff and landing
+    # deselected the aircraft holds one altitude, so there is no surface to
+    # take a gradient of. The caption says the slider was widened.
     app.tag_var.set("42")
     app.prop_var.set("Altitude (m)")
-    app.update_plot()
+    set_time_range(app)
     save(app, "plot-day5-altitude.pdf", FIG_SIZE_HALF)
     app.prop_var.set("SNR")
+
+    # What the default time window is for: the same tag with the climb and
+    # descent included, and with them deselected.
+    print("takeoff/landing comparison")
+    app.on_load(day8)
+    app.tag_var.set("12")
+    app.update_plot()
+    cruise = default_time_range(app)
+    set_time_range(app)
+    save(app, "plot-day8-with-takeoff.pdf", FIG_SIZE_HALF)
+    set_time_range(app, *cruise)
+    save(app, "plot-day8-cruise.pdf", FIG_SIZE_HALF)
 
     # The gradient field the bearing is computed from, on real data: one flight
     # where the field agrees on a direction and one where it does not.

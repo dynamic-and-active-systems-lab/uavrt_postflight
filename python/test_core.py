@@ -190,6 +190,45 @@ def test_bearing():
           np.isnan(analysis.estimate_bearing(None, 5.0)[0]))
 
 
+def test_flight_window():
+    print("\nflight window (takeoff and landing trimming)")
+
+    # A textbook profile: 15 s climb, cruise at 60 m, 15 s descent.
+    t = np.arange(0.0, 100.0)
+    alt = np.clip(np.minimum(t * 4.0, (99.0 - t) * 4.0), 0.0, 60.0)
+    lo, hi = analysis.flight_window(t, alt)
+    check("trims the climb and the descent", (lo, hi) == (15.0, 84.0),
+          "%.0f..%.0f of 0..99" % (lo, hi))
+    check("the trimmed ends are the low-altitude ones",
+          alt[: int(lo)].max() < 60.0 and alt[int(hi) + 1:].max() < 60.0)
+
+    # Only the ends are trimmed: a mid-flight descent is survey data.
+    dipped = alt.copy()
+    dipped[45:55] = 5.0
+    check("keeps a mid-flight descent",
+          analysis.flight_window(t, dipped) == (15.0, 84.0))
+
+    # Degenerate altitude cannot support the judgement; keep everything.
+    check("constant altitude keeps the whole log",
+          analysis.flight_window(t, np.full_like(t, 50.0)) == (0.0, 99.0))
+    check("missing altitude keeps the whole log",
+          analysis.flight_window(t, np.full_like(t, np.nan)) == (0.0, 99.0))
+    check("a single sample keeps the whole log",
+          analysis.flight_window(np.array([7.0]), np.array([50.0]))
+          == (7.0, 7.0))
+
+    # A window so short the altitude is more likely junk than the flight brief.
+    spike = np.zeros_like(t)
+    spike[50] = 100.0
+    lo, hi = analysis.flight_window(t, spike)
+    check("falls back when the window would be a sliver",
+          (lo, hi) == (0.0, 99.0), "%.0f..%.0f" % (lo, hi))
+
+    # It is a default, not a filter: the caller still sees every pulse.
+    check("returns bounds inside the input range",
+          lo >= t.min() and hi <= t.max())
+
+
 def test_grid_and_kmz():
     print("\ngridding and KMZ")
     rng = np.random.default_rng(3)
@@ -257,6 +296,7 @@ def main():
     test_movmean()
     test_geodesy()
     test_bearing()
+    test_flight_window()
     test_grid_and_kmz()
     print("\n%s" % ("ALL PASS" if not _failures
                     else "FAILURES: " + ", ".join(_failures)))

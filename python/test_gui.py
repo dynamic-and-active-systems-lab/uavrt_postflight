@@ -101,6 +101,36 @@ def main(argv):
     check("title reports pulses and bearing",
           "pulses" in app.ax.get_title(), app.ax.get_title()[:70])
 
+    # Takeoff and landing are deselected by default, but not thrown away: the
+    # slider limits still cover the whole log so they are one drag from view.
+    full_lo = float(app.time_lo.cget("from"))
+    full_hi = float(app.time_lo.cget("to"))
+    sel_lo, sel_hi = app._slider_range(app.time_lo, app.time_hi)
+    minutes = ((app.data.start_time_seconds - app.data.start_time_seconds[0])
+               / 60.0)
+    check("slider limits still span the whole log",
+          abs(full_lo - minutes.min()) < 1e-6 and abs(full_hi - minutes.max()) < 1e-6,
+          "%.2f..%.2f min" % (full_lo, full_hi))
+    check("default selection is inside those limits",
+          full_lo <= sel_lo < sel_hi <= full_hi,
+          "%.2f..%.2f min" % (sel_lo, sel_hi))
+    alt = np.asarray(app.data.alt_rel, float)
+    cruise = np.nanmedian(alt)
+    started_low = np.isfinite(alt[0]) and alt[0] < cruise
+    check("takeoff excluded when the log starts near the ground",
+          (sel_lo > full_lo) if started_low else True,
+          "starts at %.0f m, cruise %.0f m" % (alt[0], cruise))
+    n_default = len(app.plot_state["lat"])
+    app.time_lo.set(full_lo)
+    app.time_hi.set(full_hi)
+    app.update_plot()
+    check("widening the slider brings takeoff and landing back",
+          len(app.plot_state["lat"]) >= n_default,
+          "%d -> %d pulses" % (n_default, len(app.plot_state["lat"])))
+    app.time_lo.set(sel_lo)
+    app.time_hi.set(sel_hi)
+    app.update_plot()
+
     b = app.current_bearing
     check("bearing computed", np.isfinite(b["bearing_deg"]),
           "%.1f deg, conf %.2f" % (b["bearing_deg"], b["confidence"])

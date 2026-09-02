@@ -443,10 +443,15 @@ class PulsePlotter(ttk.Frame):
             t_lo, t_hi = float(minutes.min()), float(minutes.max())
             if t_hi <= t_lo:
                 t_hi = t_lo + 1.0 / 60.0
+            # Limits span the whole log; only the initial value is narrowed to
+            # the flight proper, so takeoff and landing stay one drag away.
             for scale in (self.time_lo, self.time_hi):
                 scale.configure(from_=t_lo, to=t_hi)
-            self.time_lo.set(t_lo)
-            self.time_hi.set(t_hi)
+            c_lo, c_hi = analysis.flight_window(minutes, table.alt_rel)
+            if not (np.isfinite(c_lo) and np.isfinite(c_hi) and c_lo < c_hi):
+                c_lo, c_hi = t_lo, t_hi
+            self.time_lo.set(min(max(c_lo, t_lo), t_hi))
+            self.time_hi.set(max(min(c_hi, t_hi), t_lo))
 
             snr = table.snr[np.isfinite(table.snr)]
             s_lo = float(snr.min()) if snr.size else 0.0

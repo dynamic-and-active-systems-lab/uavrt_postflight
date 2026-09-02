@@ -44,22 +44,6 @@ def capture(region, path):
                          % (result.stderr.strip() or "no output"))
 
 
-def trim_foreign_rows(path):
-    """Drop rows below the window: the capture rectangle overshoots slightly
-    and would otherwise catch whatever is behind it."""
-    from PIL import Image
-    im = Image.open(path).convert("RGB")
-    w, h = im.size
-    px = im.load()
-    bottom = h
-    for y in range(h - 1, max(h - 30, 0), -1):
-        row = [px[x, y] for x in range(4, w - 4, 11)]
-        if any(abs(c[0] - c[2]) > 8 or c[0] < 120 for c in row):
-            bottom = y
-    im.crop((0, 0, w, bottom)).save(path)
-    return w, bottom
-
-
 def compose_columns(raw, out, cuts, body_height):
     """The control column is tall and thin; split it into two so it is legible
     at page width. Split on a section header so nothing is cut through."""
@@ -117,9 +101,11 @@ def main(argv):
             print("warning: the window runs off the main display; the capture "
                   "will include whatever is beside it. Shrink WINDOW.")
 
+        # Exactly the window's own rectangle: one row more and the capture
+        # picks up whatever is behind it along the bottom edge.
         full = os.path.join(FIGURES, "screen-window.png")
-        capture((wx - 1, wy - TITLE_BAR, ww + 2, wh + TITLE_BAR + 1), full)
-        state["window"] = (full, trim_foreign_rows(full))
+        capture((wx - 1, wy - TITLE_BAR, ww + 2, wh + TITLE_BAR), full)
+        state["window"] = (full, (ww + 2, wh + TITLE_BAR))
 
         # Ask Tk where the section headers are: a section is the frame holding
         # a label and a separator.

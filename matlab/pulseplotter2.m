@@ -144,6 +144,51 @@ classdef pulseplotter2 < matlab.apps.AppBase
             end
         end
 
+        function [tStart, tEnd] = flightWindow(app, timeVec, alt) %#ok<INUSD>
+            % The span of the flight proper, with takeoff and landing trimmed.
+            %
+            % A survey flies out at a working altitude and holds it, so the
+            % median altitude of the log is the cruise altitude. Everything
+            % before the aircraft first reaches it, and everything after it
+            % last leaves it, is the climb and the descent: pulses received
+            % close to the ground, weaker than the rest, and all clustered
+            % around the launch point, which drags the interpolated surface
+            % down exactly where the flight starts and ends.
+            %
+            % Only the leading and trailing runs are trimmed, so a mid-flight
+            % descent is kept. timeVec must be sorted, which readpulsetable
+            % guarantees.
+            %
+            % This sets the slider's Value, never its Limits, so the discarded
+            % ends stay one drag away. Falls back to the full range when the
+            % altitudes cannot support the judgement.
+            minFraction = 0.2;
+            tStart = min(timeVec);
+            tEnd   = max(timeVec);
+
+            finiteMask = isfinite(alt) & isfinite(timeVec);
+            if nnz(finiteMask) < 2
+                return
+            end
+
+            cruise = median(alt(finiteMask));
+            above  = finiteMask & (alt >= cruise);
+            first  = find(above, 1, 'first');
+            last   = find(above, 1, 'last');
+            if isempty(first) || last <= first
+                return
+            end
+
+            candStart = timeVec(first);
+            candEnd   = timeVec(last);
+            kept = nnz(timeVec >= candStart & timeVec <= candEnd);
+            if kept < max(2, minFraction*numel(timeVec))
+                return
+            end
+            tStart = candStart;
+            tEnd   = candEnd;
+        end
+
         function b = emptyBearingStruct(app)
             b.bearingDeg       = NaN;   % compass degrees, 0 = north, clockwise
             b.confidence       = NaN;   % 0..1 resultant length of the gradient field
@@ -538,7 +583,16 @@ classdef pulseplotter2 < matlab.apps.AppBase
                 maxTime = minTime + eps(minTime) + 1/60;   % single-pulse logs
             end
             app.TimeSelectionminSlider.Limits = [minTime, maxTime];
-            app.TimeSelectionminSlider.Value  = [minTime, maxTime];
+            % Limits span the whole log; only the initial value is narrowed to
+            % the flight proper, so takeoff and landing stay one drag away.
+            [cruiseStart, cruiseEnd] = app.flightWindow(timeMin, app.data.alt_rel);
+            cruiseStart = min(max(cruiseStart, minTime), maxTime);
+            cruiseEnd   = max(min(cruiseEnd,   maxTime), minTime);
+            if ~(isfinite(cruiseStart) && isfinite(cruiseEnd)) || cruiseEnd <= cruiseStart
+                cruiseStart = minTime;
+                cruiseEnd   = maxTime;
+            end
+            app.TimeSelectionminSlider.Value = [cruiseStart, cruiseEnd];
 
             totalTime = maxTime - minTime;
             major = totalTime/10;
@@ -570,8 +624,8 @@ classdef pulseplotter2 < matlab.apps.AppBase
             app.SNRRangeSlider.MinorTicks = snrTicks;
 
             % Set the edit fields from the slider before the first plot.
-            app.StartTimesEditField.Value = minTime*60;
-            app.EndTimesEditField.Value   = maxTime*60;
+            app.StartTimesEditField.Value = cruiseStart*60;
+            app.EndTimesEditField.Value   = cruiseEnd*60;
 
             % Takeoff elevation comes from the Elev (m) field rather than a
             % modal legacy dialog, which blocks a uifigure app from behind.

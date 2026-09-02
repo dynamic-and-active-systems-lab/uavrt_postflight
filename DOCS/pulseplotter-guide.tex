@@ -208,7 +208,8 @@ Day 8, 24 Nov & \code{Pulse-2025-11-24-15-42-40-343.csv} &  460 & 10.5 min & 10,
 Press \textbf{Load Data} and choose \code{Pulse-2025-11-21-11-08-41-149.csv}.
 The plot appears immediately --- there is no separate ``plot'' button. The
 \textbf{Tag ID} list fills with the tags present in the file and selects the
-most common one.
+most common one, and the time slider opens on the flight proper rather than on
+the whole log. See section~\ref{sec:window} for why.
 
 \begin{figure}[htbp]
 \centering
@@ -222,6 +223,41 @@ the control column and in the plot title. Both implementations use this
 arrangement and these four groups.}
 \end{figure}
 
+\subsection{Takeoff and landing are deselected to start with}
+\label{sec:window}
+
+A flight begins and ends at the ground. Pulses received during the climb and the
+descent are weaker than the rest --- on the Day 8 flight they average 24 to
+27\,dB against 42.9\,dB at working altitude --- and they are all clustered
+around the launch point, so they pull the interpolated surface down in one
+corner of the map and make the site look quieter than it is.
+
+The application therefore opens the time slider on the flight proper. The rule
+is the altitude: a survey climbs to a working height and holds it, so the median
+altitude of the log is the cruise altitude, and everything before the aircraft
+first reaches it or after it last leaves it is climb or descent. Only the
+leading and trailing runs are trimmed, so a deliberate mid-flight descent is
+kept.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.49\textwidth]{plot-day8-with-takeoff.pdf}\hfill
+\includegraphics[width=0.49\textwidth]{plot-day8-cruise.pdf}
+\caption{Day 8, tag 12. Left: the whole log, as earlier versions opened it. The
+blue patch at the origin is takeoff and landing, and it drags the surface and
+the colour scale down around the launch point. Right: what you now get on load,
+with the climb and descent deselected --- 307 of the 460 pulses, and a surface
+that reflects the survey rather than the ground.}
+\label{fig:window}
+\end{figure}
+
+\noindent \textbf{Nothing is discarded.} The slider's limits still cover the
+whole log; only its handles start inside. Drag the left handle back to zero and
+the takeoff reappears. If the altitudes cannot support the judgement --- all
+equal, all missing, or a window so short that the altitude is more likely to be
+junk than the flight to have been that brief --- the slider opens on the whole
+log as before.
+
 \subsection{Pick a tag}
 
 This flight carried four tags. Changing \textbf{Tag ID} replots for that tag
@@ -232,11 +268,12 @@ how much of the flight the selected tag actually covers.
 \centering
 \includegraphics[width=0.49\textwidth]{plot-day5-tag42.pdf}\hfill
 \includegraphics[width=0.49\textwidth]{plot-day5-tag40.pdf}
-\caption{Day 5, tag 42 (left, 520 pulses) and tag 40 (right, 490 pulses) from
-the same flight. Grey dots are all 1111 pulses; coloured dots are the selected
-tag; the filled surface is SNR interpolated over the area flown. Both tags put
-the strong signal to the south-east and give bearings within three degrees of
-each other. Real output from the application.}
+\caption{Day 5, tag 42 (left) and tag 40 (right) from the same flight, on the
+default time window: 434 and 429 pulses respectively. Grey dots are all 1111
+pulses in the file, including the tags not selected and the takeoff and landing
+the window excludes; coloured dots are the selection; the filled surface is SNR
+interpolated over it. The two tags agree on a bearing to within a degree. Real
+output from the application.}
 \end{figure}
 
 \subsection{Narrow the selection}
@@ -307,7 +344,9 @@ Save / Clear  & Store the current bearing in that slot, or empty it. Saved beari
 Bearing, Confidence, Spread & The current estimate. See section~\ref{sec:theory}. \\
 \midrule
 \multicolumn{2}{@{}l}{\textbf{Below the plot}} \\
-Time / SNR sliders & Lower and upper bounds. Replot on release. \\
+Time / SNR sliders & Lower and upper bounds. Replot on release. The time slider
+opens on the flight proper, with takeoff and landing deselected but still within
+its limits --- see section~\ref{sec:window}. \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -406,7 +445,7 @@ and has no counterpart in a component average.
 \caption{The gradient field the estimate is built from, on two real flights.
 Left: the arrows broadly agree and the resultant is meaningful. Right: the
 aircraft passed over the tag, so the gradients converge on an interior maximum
-and cancel; the resultant still has a direction but $R=0.12$ says not to trust
+and cancel; the resultant still has a direction but $R=0.15$ says not to trust
 it. Both panels are computed by the application's own code.}
 \label{fig:gradient}
 \end{figure}
@@ -466,10 +505,12 @@ area flown. Three things break that assumption:
 \includegraphics[width=0.52\textwidth]{plot-day5-altitude.pdf}
 \caption{The third failure mode, and the reason the confidence is not a measure
 of correctness. This is the Day 5 flight with \textbf{Property} set to
-\textbf{Altitude (m)}: the surface is the aircraft's own height profile, so the
-field agrees strongly ($R=0.88$, the highest number in this guide) on a bearing
-of $83.6^\circ$ that has nothing whatever to do with the tag. A high $R$ means
-the cells agree, not that you asked a sensible question.}
+\textbf{Altitude (m)} and the time slider widened to the whole log: the surface
+is the aircraft's own height profile, so the field agrees strongly ($R=0.88$,
+the highest number in this guide) on a bearing of $83.6^\circ$ that has nothing
+whatever to do with the tag. A high $R$ means the cells agree, not that you
+asked a sensible question. (On the default window the aircraft holds one
+altitude, so there is no surface at all and the bearing reads \code{-}.)}
 \end{figure}
 
 \begin{center}
@@ -521,6 +562,8 @@ Bearing reads \code{-} &
   No surface, so no gradient. Widen the time or SNR window. \\
 The plot crawls on a long flight &
   Grid resolution too fine. It is capped automatically, but a coarser value replots faster. \\
+Fewer pulses than the file contains, on load &
+  Expected: takeoff and landing start deselected. Widen the time slider to see them. \\
 \bottomrule
 \end{tabular}
 \end{center}
