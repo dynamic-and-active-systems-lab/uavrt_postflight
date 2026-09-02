@@ -27,9 +27,17 @@ There are two copies of the same app:
 | `matlab/pulseplotter2.m` | **Default.** Plain classdef. Safe to edit from outside MATLAB. |
 | `matlab/pulseplotter.mlapp` | Only when you need App Designer's visual canvas editor. |
 
-They contain identical code apart from the class name. `matlab/pulseplotter2.m` exists
-because App Designer silently overwrites external edits to the `.mlapp` — see
-[Hazards](#hazards-read-before-editing).
+`matlab/pulseplotter2.m` exists because App Designer silently overwrites external
+edits to the `.mlapp` — see [Hazards](#hazards-read-before-editing).
+
+**They are no longer identical.** They were, until the 2026-09-02 layout rework.
+The analysis code is still the same; `createComponents` is not. `pulseplotter2.m`
+now builds its window from nested `uigridlayout` containers, and the `.mlapp` and
+`pulseplotter_code.txt` still carry App Designer's absolute `Position` vectors.
+That was deliberate: hand-written grid code would very likely make App Designer
+refuse Design View, and there is no way to check that without MATLAB. Run
+`pulseplotter2`. Re-syncing the `.mlapp` is a job for App Designer's canvas, not
+for an external edit.
 
 ---
 
@@ -37,13 +45,14 @@ because App Designer silently overwrites external edits to the `.mlapp` — see
 
 | File | Lines | Purpose |
 |---|---|---|
-| `matlab/pulseplotter2.m` | 1050 | The app. Run this. |
-| `matlab/pulseplotter.mlapp` | 1047 | Same code, App Designer package. |
+| `matlab/pulseplotter2.m` | 1193 | The app. Run this. Grid-based layout. |
+| `matlab/pulseplotter.mlapp` | 1047 | App Designer package. Same analysis, pre-rework layout. |
 | `matlab/readpulsetable.m` | 121 | Reads any TagTracker pulse-log format into a table. |
 | `matlab/geo2enu.m` | 35 | Geodetic → local ENU. Replaces `latlon2local`. |
 | `matlab/enu2geo.m` | 33 | Local ENU → geodetic. Replaces `local2latlon`. |
 | `matlab/kmzwrite.m` | 341 | Writes the KMZ. Replaces the kmltoolbox. |
 | `matlab/MONOPOLE_SCAN_MAPPING.m` | 281 | Standalone analysis script; shares all four helpers. |
+| `matlab/check_layout.py` | 120 | Checks `createComponents`' grid declarations without MATLAB. |
 
 The four helpers **must sit alongside the app** — it calls them by name. Moving
 the `.mlapp` on its own, or packaging it as a MATLAB App, breaks it unless they
@@ -143,6 +152,33 @@ placemark-by-placemark on every slider drag, which is what made the app crawl on
 1000+ pulse logs. `updateAreaPlot` stores a `plotState` snapshot;
 `ExportKMLButtonPushed` does the work.
 
+**The window is built from grids, not `Position` vectors.** App Designer's
+generated `createComponents` placed every control at an absolute pixel position
+inside a panel. That is fine at exactly the size it was drawn at and wrong
+everywhere else: shrinking the figure pushed the top of the control column off
+the panel, and the proportional resize MATLAB applies to panel children stretched
+labels away from the fields they belong to. `createComponents` now uses nested
+`uigridlayout` containers throughout — a `ControlGrid` in the left panel and a
+`PlotGrid` in the right — and grid cells cannot overlap or be clipped.
+
+Two consequences worth knowing before editing it:
+
+- `ControlGrid` rows all have **fixed heights**, collected into a `heights` cell
+  array as the rows are created and applied in one assignment at the end. Fixed
+  heights are what let `Scrollable` compute a scroll extent; a `'1x'` row in
+  there would silently break scrolling. Add controls by bumping `row` and
+  appending a height in the same place, so the two cannot drift apart.
+- The radio buttons inside the two `uibuttongroup`s are still absolutely
+  positioned, because `uiradiobutton` must be a direct child of its ButtonGroup
+  and cannot go in a grid. Those groups sit in fixed-size cells and have
+  `AutoResizeChildren` off, so nothing moves. If you add a radio button, keep it
+  inside the 210 px the two grid columns give the group.
+
+The Python port mirrors this: the same four sections in the same order and a
+scrolling control column. `python/test_layout.py` audits the real Tk geometry;
+`matlab/check_layout.py` is the nearest MATLAB-side equivalent, and it can only
+check the declarations, not what MATLAB actually draws.
+
 ---
 
 ## Hazards, read before editing
@@ -232,6 +268,18 @@ exists) before trusting a "no results" answer.
   helpers are the intended shared layer.
 
 ## History
+
+**2026-09-02, layout.** `createComponents` was rebuilt on `uigridlayout`; see
+[Design decisions](#design-decisions). The bug that prompted it was in the Python
+port — the matplotlib toolbar was drawn over the SNR sliders and the lower one
+vanished — but the MATLAB app had the same class of problem from absolute
+positioning. Also then: `BearingEditField` became a text field showing `-` rather
+than a numeric field showing `-Inf`, and `Confidence` and `Spread (deg)` readouts
+were added beside it; the plot title wraps to two lines so it does not run off a
+narrow axes. Verified by static inspection only — block balance, every declared
+component referenced, and `matlab/check_layout.py`, which interprets
+`createComponents` and confirms every child lands in a declared grid cell and
+no two share one. **MATLAB never ran.**
 
 The app was reviewed and largely rewritten in Aug 2026. Fixed then: saved
 bearings threw on every replot (missing `(i)` index) and drew in a meaningless

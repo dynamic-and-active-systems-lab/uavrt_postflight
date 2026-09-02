@@ -16,10 +16,15 @@ classdef pulseplotter2 < matlab.apps.AppBase
         UIFigure                       matlab.ui.Figure
         GridLayout                     matlab.ui.container.GridLayout
         LeftPanel                      matlab.ui.container.Panel
-        BearingEditField               matlab.ui.control.NumericEditField
+        ControlGrid                    matlab.ui.container.GridLayout
+        BearingEditField               matlab.ui.control.EditField
+        BearingEditFieldLabel          matlab.ui.control.Label
+        ConfidenceEditField            matlab.ui.control.EditField
+        ConfidenceEditFieldLabel       matlab.ui.control.Label
+        SpreadEditField                matlab.ui.control.EditField
+        SpreadEditFieldLabel           matlab.ui.control.Label
         TakeoffElevEditField           matlab.ui.control.NumericEditField
         TakeoffElevEditFieldLabel      matlab.ui.control.Label
-        BearingEditFieldLabel          matlab.ui.control.Label
         PlotTagSwitch                  matlab.ui.control.Switch
         PlotTagSwitchLabel             matlab.ui.control.Label
         TagLonEditField                matlab.ui.control.NumericEditField
@@ -55,6 +60,7 @@ classdef pulseplotter2 < matlab.apps.AppBase
         FileEditFieldLabel             matlab.ui.control.Label
         LoadDataButton                 matlab.ui.control.Button
         RightPanel                     matlab.ui.container.Panel
+        PlotGrid                       matlab.ui.container.GridLayout
         SNRRangeSlider                 matlab.ui.control.RangeSlider
         SNRRangeSliderLabel            matlab.ui.control.Label
         TimeSelectionminSlider         matlab.ui.control.RangeSlider
@@ -65,6 +71,7 @@ classdef pulseplotter2 < matlab.apps.AppBase
     % Properties that correspond to apps with auto-reflow
     properties (Access = private)
         onePanelWidth = 576;
+        sidebarWidth  = 230;   % width of the control column, px
     end
 
 
@@ -361,9 +368,13 @@ classdef pulseplotter2 < matlab.apps.AppBase
             app.currentBearing = bearing;
 
             if isnan(bearing.bearingDeg)
-                app.BearingEditField.Value = -Inf;
+                app.BearingEditField.Value    = '-';
+                app.ConfidenceEditField.Value = '-';
+                app.SpreadEditField.Value     = '-';
             else
-                app.BearingEditField.Value = bearing.bearingDeg;
+                app.BearingEditField.Value    = sprintf('%.1f', bearing.bearingDeg);
+                app.ConfidenceEditField.Value = sprintf('%.2f', bearing.confidence);
+                app.SpreadEditField.Value     = sprintf('%.0f', bearing.spreadDeg);
             end
 
             %% AXIS SCALING AND LABELS
@@ -439,9 +450,12 @@ classdef pulseplotter2 < matlab.apps.AppBase
                 bearingText = sprintf('bearing %.1f\\circ (conf %.2f, \\pm%.0f\\circ)', ...
                     bearing.bearingDeg, bearing.confidence, bearing.spreadDeg);
             end
-            title(app.UIAxes, sprintf('Tag %s  |  %s  |  %d of %d pulses  |  %s', ...
-                app.TagIDDropDown.Value, app.PropertyDropDown.Value, ...
-                height(dataMasked), height(app.data), bearingText), ...
+            % Two lines: one long title runs off the ends of a narrow axes.
+            title(app.UIAxes, { ...
+                sprintf('Tag %s  |  %s  |  %d of %d pulses', ...
+                    app.TagIDDropDown.Value, app.PropertyDropDown.Value, ...
+                    height(dataMasked), height(app.data)), ...
+                bearingText}, ...
                 'Interpreter', 'tex');
 
             %% SNAPSHOT THE STATE THE KML EXPORT NEEDS
@@ -706,18 +720,23 @@ classdef pulseplotter2 < matlab.apps.AppBase
         % Changes arrangement of the app based on UIFigure width
         function updateAppLayout(app, event)
             currentFigureWidth = app.UIFigure.Position(3);
-            if(currentFigureWidth <= app.onePanelWidth)
-                % Change to a 2x1 grid
-                app.GridLayout.RowHeight = {571, 571};
+            if currentFigureWidth <= app.onePanelWidth
+                % Too narrow for side by side: stack the control column above
+                % the plot. The column keeps a fixed height and scrolls
+                % internally, so none of its controls are lost.
+                app.GridLayout.RowHeight   = {320, '1x'};
                 app.GridLayout.ColumnWidth = {'1x'};
-                app.RightPanel.Layout.Row = 2;
-                app.RightPanel.Layout.Column = 1;
+                app.LeftPanel.Layout.Row      = 1;
+                app.LeftPanel.Layout.Column   = 1;
+                app.RightPanel.Layout.Row     = 2;
+                app.RightPanel.Layout.Column  = 1;
             else
-                % Change to a 1x2 grid
-                app.GridLayout.RowHeight = {'1x'};
-                app.GridLayout.ColumnWidth = {205, '1x'};
-                app.RightPanel.Layout.Row = 1;
-                app.RightPanel.Layout.Column = 2;
+                app.GridLayout.RowHeight   = {'1x'};
+                app.GridLayout.ColumnWidth = {app.sidebarWidth, '1x'};
+                app.LeftPanel.Layout.Row      = 1;
+                app.LeftPanel.Layout.Column   = 1;
+                app.RightPanel.Layout.Row     = 1;
+                app.RightPanel.Layout.Column  = 2;
             end
         end
     end
@@ -725,295 +744,419 @@ classdef pulseplotter2 < matlab.apps.AppBase
     % Component initialization
     methods (Access = private)
 
+        % ---------------------------------------------------------------
+        % Layout helpers.
+        %
+        % The window is built from nested uigridlayout containers rather
+        % than absolute Position vectors. Absolute positions are what made
+        % the original layout fragile: shrinking the figure pushed the top
+        % of the control column off the panel and squeezed the range
+        % sliders under the axes, and MATLAB gives no warning when it does
+        % either. A grid cannot overlap or clip its cells, and the control
+        % column is Scrollable, so a short window scrolls rather than
+        % hiding the controls at the bottom.
+        %
+        % The one place absolute positions survive is inside the two
+        % button groups, because uiradiobutton must be a direct child of
+        % its ButtonGroup and cannot be placed in a grid. Those groups sit
+        % in fixed-size grid cells and have AutoResizeChildren off, so
+        % their contents never move.
+        % ---------------------------------------------------------------
+
+        function [row, heights] = addSection(app, parent, row, heights, text) %#ok<INUSD>
+            % Bold caption over a hairline rule. Mirrors the Python port.
+            row = row + 1;
+            heights{row} = 22;
+            header = uilabel(parent);
+            header.Text = text;
+            header.FontWeight = 'bold';
+            header.FontColor = [0.29 0.33 0.41];
+            header.VerticalAlignment = 'bottom';
+            header.Layout.Row = row;
+            header.Layout.Column = [1 2];
+
+            row = row + 1;
+            heights{row} = 1;
+            rule = uipanel(parent);
+            rule.BorderType = 'none';
+            rule.BackgroundColor = [0.80 0.80 0.82];
+            rule.Layout.Row = row;
+            rule.Layout.Column = [1 2];
+        end
+
+        function label = addLabel(app, parent, row, text) %#ok<INUSD>
+            % Right-aligned caption in the first column of a control row.
+            label = uilabel(parent);
+            label.Text = text;
+            label.HorizontalAlignment = 'right';
+            label.Layout.Row = row;
+            label.Layout.Column = 1;
+        end
+
+        function [field, label] = addReadout(app, parent, row, text)
+            % Read-only text field. Text rather than numeric so that "no
+            % value yet" can show as a dash instead of -Inf.
+            label = app.addLabel(parent, row, text);
+            field = uieditfield(parent, 'text');
+            field.Editable = 'off';
+            field.HorizontalAlignment = 'right';
+            field.Value = '-';
+            field.Layout.Row = row;
+            field.Layout.Column = 2;
+        end
+
         % Create UIFigure and components
         function createComponents(app)
 
             % Create UIFigure and hide until all components are created
             app.UIFigure = uifigure('Visible', 'off');
             app.UIFigure.AutoResizeChildren = 'off';
-            app.UIFigure.Position = [100 100 730 571];
-            app.UIFigure.Name = 'MATLAB App';
+            app.UIFigure.Position = [100 100 1000 700];
+            app.UIFigure.Name = 'pulseplotter';
             app.UIFigure.SizeChangedFcn = createCallbackFcn(app, @updateAppLayout, true);
 
             % Create GridLayout
             app.GridLayout = uigridlayout(app.UIFigure);
-            app.GridLayout.ColumnWidth = {205, '1x'};
+            app.GridLayout.ColumnWidth = {app.sidebarWidth, '1x'};
             app.GridLayout.RowHeight = {'1x'};
             app.GridLayout.ColumnSpacing = 0;
             app.GridLayout.RowSpacing = 0;
             app.GridLayout.Padding = [0 0 0 0];
-            app.GridLayout.Scrollable = 'on';
 
             % Create LeftPanel
             app.LeftPanel = uipanel(app.GridLayout);
             app.LeftPanel.Layout.Row = 1;
             app.LeftPanel.Layout.Column = 1;
 
-            % Create LoadDataButton
-            app.LoadDataButton = uibutton(app.LeftPanel, 'push');
+            % Create ControlGrid - the scrolling control column.
+            % Every row has a fixed height; that is what lets Scrollable
+            % work out how tall the contents are and scroll when the
+            % window is shorter than they need.
+            app.ControlGrid = uigridlayout(app.LeftPanel);
+            app.ControlGrid.ColumnWidth = {92, '1x'};
+            app.ControlGrid.ColumnSpacing = 8;
+            app.ControlGrid.RowSpacing = 4;
+            app.ControlGrid.Padding = [10 10 10 10];
+            app.ControlGrid.Scrollable = 'on';
+            % Start with more rows than the column needs, so every
+            % Layout.Row assignment below lands in a row that already
+            % exists; the exact heights are applied once at the end.
+            app.ControlGrid.RowHeight = repmat({22}, 1, 40);
+
+            % Rows are numbered as they are created and their heights
+            % collected alongside, so adding or moving a control cannot
+            % put the two out of step.
+            row = 0;
+            heights = {};
+
+            % ---- Load / Export -------------------------------------
+            row = row + 1;
+            heights{row} = 24;
+            buttonRow = uigridlayout(app.ControlGrid);
+            buttonRow.ColumnWidth = {'1x', '1x'};
+            buttonRow.RowHeight = {'1x'};
+            buttonRow.ColumnSpacing = 6;
+            buttonRow.Padding = [0 0 0 0];
+            buttonRow.Layout.Row = row;
+            buttonRow.Layout.Column = [1 2];
+
+            app.LoadDataButton = uibutton(buttonRow, 'push');
             app.LoadDataButton.ButtonPushedFcn = createCallbackFcn(app, @LoadDataButtonPushed, true);
-            app.LoadDataButton.Position = [16 536 75 23];
             app.LoadDataButton.Text = 'Load Data';
+            app.LoadDataButton.Layout.Row = 1;
+            app.LoadDataButton.Layout.Column = 1;
 
-            % Create FileEditFieldLabel
-            app.FileEditFieldLabel = uilabel(app.LeftPanel);
-            app.FileEditFieldLabel.HorizontalAlignment = 'right';
-            app.FileEditFieldLabel.Position = [29 506 27 22];
-            app.FileEditFieldLabel.Text = 'File:';
+            app.ExportKMLButton = uibutton(buttonRow, 'push');
+            app.ExportKMLButton.ButtonPushedFcn = createCallbackFcn(app, @ExportKMLButtonPushed, true);
+            app.ExportKMLButton.Text = 'Export KML';
+            app.ExportKMLButton.Layout.Row = 1;
+            app.ExportKMLButton.Layout.Column = 2;
 
-            % Create FileEditField
-            app.FileEditField = uieditfield(app.LeftPanel, 'text');
+            % ---- File ----------------------------------------------
+            row = row + 1;
+            heights{row} = 22;
+            app.FileEditFieldLabel = app.addLabel(app.ControlGrid, row, 'File');
+            app.FileEditField = uieditfield(app.ControlGrid, 'text');
             app.FileEditField.Editable = 'off';
-            app.FileEditField.Position = [71 506 119 22];
+            app.FileEditField.Layout.Row = row;
+            app.FileEditField.Layout.Column = 2;
 
-            % Create TagIDDropDownLabel
-            app.TagIDDropDownLabel = uilabel(app.LeftPanel);
-            app.TagIDDropDownLabel.HorizontalAlignment = 'right';
-            app.TagIDDropDownLabel.Position = [19 474 39 22];
-            app.TagIDDropDownLabel.Text = 'Tag ID';
+            % ---- Data selection ------------------------------------
+            [row, heights] = app.addSection(app.ControlGrid, row, heights, 'Data selection');
 
-            % Create TagIDDropDown
-            app.TagIDDropDown = uidropdown(app.LeftPanel);
+            row = row + 1;
+            heights{row} = 22;
+            app.TagIDDropDownLabel = app.addLabel(app.ControlGrid, row, 'Tag ID');
+            app.TagIDDropDown = uidropdown(app.ControlGrid);
             app.TagIDDropDown.Items = {};
             app.TagIDDropDown.ValueChangedFcn = createCallbackFcn(app, @TagIDDropDownValueChanged, true);
-            app.TagIDDropDown.Position = [73 474 100 22];
             app.TagIDDropDown.Value = {};
+            app.TagIDDropDown.Layout.Row = row;
+            app.TagIDDropDown.Layout.Column = 2;
 
-            % Create AxisDropDownLabel
-            app.AxisDropDownLabel = uilabel(app.LeftPanel);
-            app.AxisDropDownLabel.HorizontalAlignment = 'right';
-            app.AxisDropDownLabel.Position = [31 445 28 22];
-            app.AxisDropDownLabel.Text = 'Axis';
-
-            % Create AxisDropDown
-            app.AxisDropDown = uidropdown(app.LeftPanel);
+            row = row + 1;
+            heights{row} = 22;
+            app.AxisDropDownLabel = app.addLabel(app.ControlGrid, row, 'Axis');
+            app.AxisDropDown = uidropdown(app.ControlGrid);
             app.AxisDropDown.Items = {'x, y', 'Lon, Lat'};
             app.AxisDropDown.ValueChangedFcn = createCallbackFcn(app, @AxisDropDownValueChanged, true);
-            app.AxisDropDown.Position = [74 445 100 22];
             app.AxisDropDown.Value = 'x, y';
+            app.AxisDropDown.Layout.Row = row;
+            app.AxisDropDown.Layout.Column = 2;
 
-            % Create PropertyDropDownLabel
-            app.PropertyDropDownLabel = uilabel(app.LeftPanel);
-            app.PropertyDropDownLabel.HorizontalAlignment = 'right';
-            app.PropertyDropDownLabel.Position = [8 415 51 22];
-            app.PropertyDropDownLabel.Text = 'Property';
-
-            % Create PropertyDropDown
-            app.PropertyDropDown = uidropdown(app.LeftPanel);
+            row = row + 1;
+            heights{row} = 22;
+            app.PropertyDropDownLabel = app.addLabel(app.ControlGrid, row, 'Property');
+            app.PropertyDropDown = uidropdown(app.ControlGrid);
             app.PropertyDropDown.Items = {'SNR', 'STFT Score', 'Time', 'Altitude (m)'};
             app.PropertyDropDown.ValueChangedFcn = createCallbackFcn(app, @PropertyDropDownValueChanged, true);
-            app.PropertyDropDown.Position = [74 415 100 22];
             app.PropertyDropDown.Value = 'SNR';
+            app.PropertyDropDown.Layout.Row = row;
+            app.PropertyDropDown.Layout.Column = 2;
 
-            % Create ExportKMLButton
-            app.ExportKMLButton = uibutton(app.LeftPanel, 'push');
-            app.ExportKMLButton.ButtonPushedFcn = createCallbackFcn(app, @ExportKMLButtonPushed, true);
-            app.ExportKMLButton.Position = [90 536 100 23];
-            app.ExportKMLButton.Text = 'Export KML';
-
-            % Create StartTimesEditFieldLabel
-            app.StartTimesEditFieldLabel = uilabel(app.LeftPanel);
-            app.StartTimesEditFieldLabel.HorizontalAlignment = 'right';
-            app.StartTimesEditFieldLabel.Position = [42 257 76 22];
-            app.StartTimesEditFieldLabel.Text = 'Start Time (s)';
-
-            % Create StartTimesEditField
-            app.StartTimesEditField = uieditfield(app.LeftPanel, 'numeric');
+            row = row + 1;
+            heights{row} = 22;
+            app.StartTimesEditFieldLabel = app.addLabel(app.ControlGrid, row, 'Start Time (s)');
+            app.StartTimesEditField = uieditfield(app.ControlGrid, 'numeric');
             app.StartTimesEditField.Editable = 'off';
-            app.StartTimesEditField.Position = [133 257 57 22];
+            app.StartTimesEditField.HorizontalAlignment = 'right';
+            app.StartTimesEditField.Layout.Row = row;
+            app.StartTimesEditField.Layout.Column = 2;
 
-            % Create EndTimesEditFieldLabel
-            app.EndTimesEditFieldLabel = uilabel(app.LeftPanel);
-            app.EndTimesEditFieldLabel.HorizontalAlignment = 'right';
-            app.EndTimesEditFieldLabel.Position = [47 235 71 22];
-            app.EndTimesEditFieldLabel.Text = 'End Time (s)';
-
-            % Create EndTimesEditField
-            app.EndTimesEditField = uieditfield(app.LeftPanel, 'numeric');
+            row = row + 1;
+            heights{row} = 22;
+            app.EndTimesEditFieldLabel = app.addLabel(app.ControlGrid, row, 'End Time (s)');
+            app.EndTimesEditField = uieditfield(app.ControlGrid, 'numeric');
             app.EndTimesEditField.Editable = 'off';
-            app.EndTimesEditField.Position = [133 235 57 22];
+            app.EndTimesEditField.HorizontalAlignment = 'right';
+            app.EndTimesEditField.Layout.Row = row;
+            app.EndTimesEditField.Layout.Column = 2;
 
-            % Create GridResmEditFieldLabel
-            app.GridResmEditFieldLabel = uilabel(app.LeftPanel);
-            app.GridResmEditFieldLabel.HorizontalAlignment = 'right';
-            app.GridResmEditFieldLabel.Position = [47 278 75 22];
-            app.GridResmEditFieldLabel.Text = 'Grid Res. (m)';
+            % ---- Surface -------------------------------------------
+            [row, heights] = app.addSection(app.ControlGrid, row, heights, 'Surface');
 
-            % Create GridResmEditField
-            app.GridResmEditField = uieditfield(app.LeftPanel, 'numeric');
-            app.GridResmEditField.Limits = [1 50];
-            app.GridResmEditField.RoundFractionalValues = 'on';
-            app.GridResmEditField.ValueDisplayFormat = '%11.0g';
-            app.GridResmEditField.ValueChangedFcn = createCallbackFcn(app, @GridResmEditFieldValueChanged, true);
-            app.GridResmEditField.Position = [133 278 57 22];
-            app.GridResmEditField.Value = 5;
-
-            % Create SmoothingWindowEditFieldLabel
-            app.SmoothingWindowEditFieldLabel = uilabel(app.LeftPanel);
-            app.SmoothingWindowEditFieldLabel.HorizontalAlignment = 'right';
-            app.SmoothingWindowEditFieldLabel.Position = [8 299 110 22];
-            app.SmoothingWindowEditFieldLabel.Text = 'Smoothing Window';
-
-            % Create SmoothingWindowEditField
-            app.SmoothingWindowEditField = uieditfield(app.LeftPanel, 'numeric');
+            row = row + 1;
+            heights{row} = 22;
+            app.SmoothingWindowEditFieldLabel = app.addLabel(app.ControlGrid, row, 'Smoothing');
+            app.SmoothingWindowEditField = uieditfield(app.ControlGrid, 'numeric');
             app.SmoothingWindowEditField.Limits = [0 10];
             app.SmoothingWindowEditField.RoundFractionalValues = 'on';
             app.SmoothingWindowEditField.ValueDisplayFormat = '%11.0g';
+            app.SmoothingWindowEditField.HorizontalAlignment = 'right';
             app.SmoothingWindowEditField.ValueChangedFcn = createCallbackFcn(app, @SmoothingWindowEditFieldValueChanged, true);
-            app.SmoothingWindowEditField.Position = [133 299 57 22];
+            app.SmoothingWindowEditField.Tooltip = {'Moving-mean window over the property, in pulses. 0 or 1 disables it.'};
             app.SmoothingWindowEditField.Value = 6;
+            app.SmoothingWindowEditField.Layout.Row = row;
+            app.SmoothingWindowEditField.Layout.Column = 2;
 
-            % Create PlotPropertyButtonGroup
-            app.PlotPropertyButtonGroup = uibuttongroup(app.LeftPanel);
-            app.PlotPropertyButtonGroup.SelectionChangedFcn = createCallbackFcn(app, @PlotPropertyButtonGroupSelectionChanged, true);
-            app.PlotPropertyButtonGroup.Title = 'Plot Property';
-            app.PlotPropertyButtonGroup.Position = [50 330 123 76];
+            row = row + 1;
+            heights{row} = 22;
+            app.GridResmEditFieldLabel = app.addLabel(app.ControlGrid, row, 'Grid Res. (m)');
+            app.GridResmEditField = uieditfield(app.ControlGrid, 'numeric');
+            app.GridResmEditField.Limits = [1 50];
+            app.GridResmEditField.RoundFractionalValues = 'on';
+            app.GridResmEditField.ValueDisplayFormat = '%11.0g';
+            app.GridResmEditField.HorizontalAlignment = 'right';
+            app.GridResmEditField.ValueChangedFcn = createCallbackFcn(app, @GridResmEditFieldValueChanged, true);
+            app.GridResmEditField.Tooltip = {'Interpolation grid spacing in metres.'};
+            app.GridResmEditField.Value = 5;
+            app.GridResmEditField.Layout.Row = row;
+            app.GridResmEditField.Layout.Column = 2;
 
-            % Create ValueButton
-            app.ValueButton = uiradiobutton(app.PlotPropertyButtonGroup);
-            app.ValueButton.Text = 'Value';
-            app.ValueButton.Position = [11 30 51 22];
-            app.ValueButton.Value = true;
-
-            % Create DivergenceButton
-            app.DivergenceButton = uiradiobutton(app.PlotPropertyButtonGroup);
-            app.DivergenceButton.Text = 'Divergence';
-            app.DivergenceButton.Position = [13 9 82 22];
-
-            % Create ActiveBearingButtonGroup
-            app.ActiveBearingButtonGroup = uibuttongroup(app.LeftPanel);
-            app.ActiveBearingButtonGroup.SelectionChangedFcn = createCallbackFcn(app, @ActiveBearingButtonGroupSelectionChanged, true);
-            app.ActiveBearingButtonGroup.Title = 'Active Bearing';
-            app.ActiveBearingButtonGroup.Position = [17 20 119 118];
-
-            % Create Button
-            app.Button = uiradiobutton(app.ActiveBearingButtonGroup);
-            app.Button.Text = '1';
-            app.Button.Position = [11 48 29 22];
-
-            % Create Button_2
-            app.Button_2 = uiradiobutton(app.ActiveBearingButtonGroup);
-            app.Button_2.Text = '2';
-            app.Button_2.Position = [11 26 29 22];
-
-            % Create Button_3
-            app.Button_3 = uiradiobutton(app.ActiveBearingButtonGroup);
-            app.Button_3.Text = '3';
-            app.Button_3.Position = [11 4 29 22];
-
-            % Create SaveButton
-            app.SaveButton = uibutton(app.ActiveBearingButtonGroup, 'push');
-            app.SaveButton.ButtonPushedFcn = createCallbackFcn(app, @SaveButtonPushed, true);
-            app.SaveButton.Position = [50 42 62 23];
-            app.SaveButton.Text = 'Save';
-
-            % Create ClearButton
-            app.ClearButton = uibutton(app.ActiveBearingButtonGroup, 'push');
-            app.ClearButton.ButtonPushedFcn = createCallbackFcn(app, @ClearButtonPushed, true);
-            app.ClearButton.Position = [50 8 58 23];
-            app.ClearButton.Text = 'Clear';
-
-            % Create OffButton
-            app.OffButton = uiradiobutton(app.ActiveBearingButtonGroup);
-            app.OffButton.Text = 'Off';
-            app.OffButton.Position = [11 69 38 22];
-            app.OffButton.Value = true;
-
-            % Create TagLatEditFieldLabel
-            app.TagLatEditFieldLabel = uilabel(app.LeftPanel);
-            app.TagLatEditFieldLabel.HorizontalAlignment = 'right';
-            app.TagLatEditFieldLabel.Position = [31 200 44 22];
-            app.TagLatEditFieldLabel.Text = 'Tag Lat';
-
-            % Create TagLatEditField
-            app.TagLatEditField = uieditfield(app.LeftPanel, 'numeric');
-            app.TagLatEditField.ValueDisplayFormat = '%11.8g';
-            app.TagLatEditField.ValueChangedFcn = createCallbackFcn(app, @TagPositionValueChanged, true);
-            app.TagLatEditField.Position = [90 200 100 22];
-
-            % Create TagLonEditFieldLabel
-            app.TagLonEditFieldLabel = uilabel(app.LeftPanel);
-            app.TagLonEditFieldLabel.HorizontalAlignment = 'right';
-            app.TagLonEditFieldLabel.Position = [28 172 47 22];
-            app.TagLonEditFieldLabel.Text = 'Tag Lon';
-
-            % Create TagLonEditField
-            app.TagLonEditField = uieditfield(app.LeftPanel, 'numeric');
-            app.TagLonEditField.ValueDisplayFormat = '%11.8g';
-            app.TagLonEditField.ValueChangedFcn = createCallbackFcn(app, @TagPositionValueChanged, true);
-            app.TagLonEditField.Position = [90 172 100 22];
-
-            % Create PlotTagSwitchLabel
-            app.PlotTagSwitchLabel = uilabel(app.LeftPanel);
-            app.PlotTagSwitchLabel.HorizontalAlignment = 'center';
-            app.PlotTagSwitchLabel.Position = [31 146 48 22];
-            app.PlotTagSwitchLabel.Text = 'Plot Tag';
-
-            % Create PlotTagSwitch
-            app.PlotTagSwitch = uiswitch(app.LeftPanel, 'slider');
-            app.PlotTagSwitch.ValueChangedFcn = createCallbackFcn(app, @PlotTagSwitchValueChanged, true);
-            app.PlotTagSwitch.Position = [117 147 45 20];
-
-            % Create BearingEditFieldLabel
-            app.BearingEditFieldLabel = uilabel(app.LeftPanel);
-            app.BearingEditFieldLabel.HorizontalAlignment = 'right';
-            app.BearingEditFieldLabel.Position = [153 49 46 22];
-            app.BearingEditFieldLabel.Text = 'Bearing';
-
-            % Create BearingEditField
-            app.BearingEditField = uieditfield(app.LeftPanel, 'numeric');
-            app.BearingEditField.Editable = 'off';
-            app.BearingEditField.Position = [147 24 42 22];
-
-            % Create TakeoffElevEditFieldLabel
-            app.TakeoffElevEditFieldLabel = uilabel(app.LeftPanel);
-            app.TakeoffElevEditFieldLabel.HorizontalAlignment = 'center';
-            app.TakeoffElevEditFieldLabel.Position = [140 120 60 22];
-            app.TakeoffElevEditFieldLabel.Text = 'Elev (m)';
-
-            % Create TakeoffElevEditField
-            app.TakeoffElevEditField = uieditfield(app.LeftPanel, 'numeric');
+            row = row + 1;
+            heights{row} = 22;
+            app.TakeoffElevEditFieldLabel = app.addLabel(app.ControlGrid, row, 'Elev (m)');
+            app.TakeoffElevEditField = uieditfield(app.ControlGrid, 'numeric');
+            app.TakeoffElevEditField.HorizontalAlignment = 'right';
             app.TakeoffElevEditField.ValueChangedFcn = createCallbackFcn(app, @TakeoffElevEditFieldValueChanged, true);
             app.TakeoffElevEditField.Tooltip = {'Elevation of the takeoff point in metres MSL. Added to the relative pulse altitudes when writing KML.'};
-            app.TakeoffElevEditField.Position = [140 98 58 22];
             app.TakeoffElevEditField.Value = 0;
+            app.TakeoffElevEditField.Layout.Row = row;
+            app.TakeoffElevEditField.Layout.Column = 2;
+
+            % Plot Property. Borderless and untitled: the section header
+            % above already names the group, and a second nested border
+            % just adds visual noise.
+            row = row + 1;
+            heights{row} = 24;
+            app.PlotPropertyButtonGroup = uibuttongroup(app.ControlGrid);
+            app.PlotPropertyButtonGroup.SelectionChangedFcn = createCallbackFcn(app, @PlotPropertyButtonGroupSelectionChanged, true);
+            app.PlotPropertyButtonGroup.BorderType = 'none';
+            app.PlotPropertyButtonGroup.Title = '';
+            app.PlotPropertyButtonGroup.AutoResizeChildren = 'off';
+            app.PlotPropertyButtonGroup.Layout.Row = row;
+            app.PlotPropertyButtonGroup.Layout.Column = [1 2];
+
+            plotPropertyCaption = uilabel(app.PlotPropertyButtonGroup);
+            plotPropertyCaption.Text = 'Plot';
+            plotPropertyCaption.HorizontalAlignment = 'left';
+            plotPropertyCaption.Position = [0 1 32 22];
+
+            app.ValueButton = uiradiobutton(app.PlotPropertyButtonGroup);
+            app.ValueButton.Text = 'Value';
+            app.ValueButton.Position = [38 1 62 22];
+            app.ValueButton.Value = true;
+
+            app.DivergenceButton = uiradiobutton(app.PlotPropertyButtonGroup);
+            app.DivergenceButton.Text = 'Divergence';
+            app.DivergenceButton.Position = [104 1 95 22];
+
+            % ---- Tag position --------------------------------------
+            [row, heights] = app.addSection(app.ControlGrid, row, heights, 'Tag position');
+
+            row = row + 1;
+            heights{row} = 22;
+            app.TagLatEditFieldLabel = app.addLabel(app.ControlGrid, row, 'Tag Lat');
+            app.TagLatEditField = uieditfield(app.ControlGrid, 'numeric');
+            app.TagLatEditField.ValueDisplayFormat = '%11.8g';
+            app.TagLatEditField.HorizontalAlignment = 'right';
+            app.TagLatEditField.ValueChangedFcn = createCallbackFcn(app, @TagPositionValueChanged, true);
+            app.TagLatEditField.Layout.Row = row;
+            app.TagLatEditField.Layout.Column = 2;
+
+            row = row + 1;
+            heights{row} = 22;
+            app.TagLonEditFieldLabel = app.addLabel(app.ControlGrid, row, 'Tag Lon');
+            app.TagLonEditField = uieditfield(app.ControlGrid, 'numeric');
+            app.TagLonEditField.ValueDisplayFormat = '%11.8g';
+            app.TagLonEditField.HorizontalAlignment = 'right';
+            app.TagLonEditField.ValueChangedFcn = createCallbackFcn(app, @TagPositionValueChanged, true);
+            app.TagLonEditField.Layout.Row = row;
+            app.TagLonEditField.Layout.Column = 2;
+
+            row = row + 1;
+            heights{row} = 28;
+            app.PlotTagSwitchLabel = app.addLabel(app.ControlGrid, row, 'Plot Tag');
+            app.PlotTagSwitch = uiswitch(app.ControlGrid, 'slider');
+            app.PlotTagSwitch.ValueChangedFcn = createCallbackFcn(app, @PlotTagSwitchValueChanged, true);
+            app.PlotTagSwitch.Layout.Row = row;
+            app.PlotTagSwitch.Layout.Column = 2;
+
+            % ---- Bearing -------------------------------------------
+            [row, heights] = app.addSection(app.ControlGrid, row, heights, 'Bearing');
+
+            row = row + 1;
+            heights{row} = 24;
+            app.ActiveBearingButtonGroup = uibuttongroup(app.ControlGrid);
+            app.ActiveBearingButtonGroup.SelectionChangedFcn = createCallbackFcn(app, @ActiveBearingButtonGroupSelectionChanged, true);
+            app.ActiveBearingButtonGroup.BorderType = 'none';
+            app.ActiveBearingButtonGroup.Title = '';
+            app.ActiveBearingButtonGroup.AutoResizeChildren = 'off';
+            app.ActiveBearingButtonGroup.Layout.Row = row;
+            app.ActiveBearingButtonGroup.Layout.Column = [1 2];
+
+            activeBearingCaption = uilabel(app.ActiveBearingButtonGroup);
+            activeBearingCaption.Text = 'Active';
+            activeBearingCaption.HorizontalAlignment = 'left';
+            activeBearingCaption.Position = [0 1 40 22];
+
+            app.OffButton = uiradiobutton(app.ActiveBearingButtonGroup);
+            app.OffButton.Text = 'Off';
+            app.OffButton.Position = [46 1 44 22];
+            app.OffButton.Value = true;
+
+            app.Button = uiradiobutton(app.ActiveBearingButtonGroup);
+            app.Button.Text = '1';
+            app.Button.Position = [94 1 32 22];
+
+            app.Button_2 = uiradiobutton(app.ActiveBearingButtonGroup);
+            app.Button_2.Text = '2';
+            app.Button_2.Position = [130 1 32 22];
+
+            app.Button_3 = uiradiobutton(app.ActiveBearingButtonGroup);
+            app.Button_3.Text = '3';
+            app.Button_3.Position = [166 1 32 22];
+
+            row = row + 1;
+            heights{row} = 24;
+            bearingActions = uigridlayout(app.ControlGrid);
+            bearingActions.ColumnWidth = {'1x', '1x'};
+            bearingActions.RowHeight = {'1x'};
+            bearingActions.ColumnSpacing = 6;
+            bearingActions.Padding = [0 0 0 0];
+            bearingActions.Layout.Row = row;
+            bearingActions.Layout.Column = [1 2];
+
+            app.SaveButton = uibutton(bearingActions, 'push');
+            app.SaveButton.ButtonPushedFcn = createCallbackFcn(app, @SaveButtonPushed, true);
+            app.SaveButton.Text = 'Save';
+            app.SaveButton.Layout.Row = 1;
+            app.SaveButton.Layout.Column = 1;
+
+            app.ClearButton = uibutton(bearingActions, 'push');
+            app.ClearButton.ButtonPushedFcn = createCallbackFcn(app, @ClearButtonPushed, true);
+            app.ClearButton.Text = 'Clear';
+            app.ClearButton.Layout.Row = 1;
+            app.ClearButton.Layout.Column = 2;
+
+            row = row + 1;
+            heights{row} = 22;
+            [app.BearingEditField, app.BearingEditFieldLabel] = ...
+                app.addReadout(app.ControlGrid, row, 'Bearing (deg)');
+
+            row = row + 1;
+            heights{row} = 22;
+            [app.ConfidenceEditField, app.ConfidenceEditFieldLabel] = ...
+                app.addReadout(app.ControlGrid, row, 'Confidence');
+
+            row = row + 1;
+            heights{row} = 22;
+            [app.SpreadEditField, app.SpreadEditFieldLabel] = ...
+                app.addReadout(app.ControlGrid, row, 'Spread (deg)');
+
+            app.ControlGrid.RowHeight = heights;
 
             % Create RightPanel
             app.RightPanel = uipanel(app.GridLayout);
             app.RightPanel.Layout.Row = 1;
             app.RightPanel.Layout.Column = 2;
 
+            % Create PlotGrid. The axes are the only row that gives up
+            % space, so the two range sliders always keep their height
+            % instead of being pushed off the bottom of the panel.
+            app.PlotGrid = uigridlayout(app.RightPanel);
+            app.PlotGrid.ColumnWidth = {70, '1x'};
+            app.PlotGrid.RowHeight = {'1x', 62, 62};
+            app.PlotGrid.RowSpacing = 6;
+            app.PlotGrid.ColumnSpacing = 8;
+            app.PlotGrid.Padding = [8 10 14 8];
+
             % Create UIAxes
-            app.UIAxes = uiaxes(app.RightPanel);
+            app.UIAxes = uiaxes(app.PlotGrid);
             title(app.UIAxes, 'Title')
             xlabel(app.UIAxes, 'X')
             ylabel(app.UIAxes, 'Y')
             zlabel(app.UIAxes, 'Z')
-            app.UIAxes.Position = [1 114 503 382];
+            app.UIAxes.Layout.Row = 1;
+            app.UIAxes.Layout.Column = [1 2];
 
             % Create TimeSelectionminSliderLabel
-            app.TimeSelectionminSliderLabel = uilabel(app.RightPanel);
+            app.TimeSelectionminSliderLabel = uilabel(app.PlotGrid);
             app.TimeSelectionminSliderLabel.HorizontalAlignment = 'right';
             app.TimeSelectionminSliderLabel.WordWrap = 'on';
-            app.TimeSelectionminSliderLabel.Position = [10 84 58 43];
             app.TimeSelectionminSliderLabel.Text = 'Time Selection (min)';
+            app.TimeSelectionminSliderLabel.Layout.Row = 2;
+            app.TimeSelectionminSliderLabel.Layout.Column = 1;
 
             % Create TimeSelectionminSlider
-            app.TimeSelectionminSlider = uislider(app.RightPanel, 'range');
+            app.TimeSelectionminSlider = uislider(app.PlotGrid, 'range');
             app.TimeSelectionminSlider.ValueChangedFcn = createCallbackFcn(app, @TimeSelectionminSliderValueChanged, true);
-            app.TimeSelectionminSlider.Position = [90 114 391 3];
+            app.TimeSelectionminSlider.Layout.Row = 2;
+            app.TimeSelectionminSlider.Layout.Column = 2;
 
             % Create SNRRangeSliderLabel
-            app.SNRRangeSliderLabel = uilabel(app.RightPanel);
+            app.SNRRangeSliderLabel = uilabel(app.PlotGrid);
             app.SNRRangeSliderLabel.HorizontalAlignment = 'right';
             app.SNRRangeSliderLabel.WordWrap = 'on';
-            app.SNRRangeSliderLabel.Position = [9 33 58 30];
             app.SNRRangeSliderLabel.Text = 'SNR Range';
+            app.SNRRangeSliderLabel.Layout.Row = 3;
+            app.SNRRangeSliderLabel.Layout.Column = 1;
 
             % Create SNRRangeSlider
-            app.SNRRangeSlider = uislider(app.RightPanel, 'range');
+            app.SNRRangeSlider = uislider(app.PlotGrid, 'range');
             app.SNRRangeSlider.ValueChangedFcn = createCallbackFcn(app, @SNRRangeSliderValueChanged, true);
-            app.SNRRangeSlider.Position = [89 50 391 3];
+            app.SNRRangeSlider.Layout.Row = 3;
+            app.SNRRangeSlider.Layout.Column = 2;
 
             % Show the figure after all components are created
             app.UIFigure.Visible = 'on';

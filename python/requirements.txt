@@ -1,4 +1,9 @@
 # pulseplotter (Python) dependencies.
-# tkinter is part of the Python standard library and is not listed here.
+#
+# tkinter is part of the standard library and is not listed here, but it is a
+# real requirement and its VERSION matters: Tk 8.6 or newer. macOS system Tk is
+# 8.5.9 and the GUI will not render on it. See README.md.
 numpy>=1.20
-matplotlib>=3.5
+# 3.6 for Figure(layout="constrained"), which keeps the plot title and
+# axis labels inside the canvas at small window sizes.
+matplotlib>=3.6

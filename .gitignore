@@ -18,3 +18,12 @@ codegen/
 # Exported products - regenerate from a pulse log rather than committing
 *.kmz
 *.kml
+
+# Python: virtual environments and bytecode, anywhere in the tree.
+# python/.gitignore covers these too; repeated here so a venv created at the
+# repo root (an easy mistake) is also ignored.
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc

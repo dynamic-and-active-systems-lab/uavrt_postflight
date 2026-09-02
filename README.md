@@ -30,7 +30,7 @@ The same tool exists twice: the original MATLAB application and a Python port. *
 | Needs | MATLAB (base install, no toolboxes) | Python 3.8+, numpy, matplotlib |
 | Licence cost | MATLAB licence required | none |
 | GUI | App Designer / `uifigure` | tkinter + matplotlib |
-| Automated tests | none | `test_core.py`, `test_gui.py` |
+| Automated tests | `check_layout.py` (layout declarations only) | `test_core.py`, `test_gui.py`, `test_layout.py` |
 | Also contains | `MONOPOLE_SCAN_MAPPING.m`, an antenna-pattern analysis script | — |
 
 **Which to use.** If you have MATLAB and are already working in it, `matlab/` is the original and the one the PI uses. If you do not have a MATLAB licence — which is most field collaborators, and most people who find this repository — `python/` gives you the whole tool for free.
@@ -54,11 +54,18 @@ Verified by source comparison on 2026-09-02. The Python port implements every co
 - Gradient bearing estimate reporting bearing, confidence and spread
 - KMZ export: styles declared once and referenced by `styleUrl`, marker icon packaged inside the archive, interpolated surface as a GroundOverlay raster, contour lines in a separate folder switched off by default
 
+Both windows use the same arrangement: a fixed-width control column on the left,
+divided into **Data selection**, **Surface**, **Tag position** and **Bearing**,
+and the plot with its two range sliders on the right. Both columns scroll rather
+than hiding controls when the window is too short, and both resize without any
+control being clipped or drawn over another.
+
 Differences, none of them functional gaps in the port:
 
 - `MONOPOLE_SCAN_MAPPING.m` is MATLAB-only. It is a standalone antenna-pattern analysis script, not part of the plotter.
-- `matlab/` ships the app twice — `pulseplotter2.m` and `pulseplotter.mlapp` — which is a MATLAB packaging quirk, not a second implementation. See `CLAUDE.md`.
-- The Python version has automated tests; the MATLAB version does not.
+- `matlab/` ships the app twice — `pulseplotter2.m` and `pulseplotter.mlapp` — which is a MATLAB packaging quirk, not a second implementation. As of the 2026-09-02 layout rework the two are no longer identical: `pulseplotter2.m` builds its window from nested `uigridlayout` containers, the `.mlapp` still carries App Designer's absolute `Position` vectors. `pulseplotter2.m` is the one to run. See `CLAUDE.md`.
+- The Python version has automated tests; the MATLAB version has only
+  `check_layout.py`, which checks the window's grid declarations and nothing else.
 - Neither has been checked numerically against the other on a shared pulse log. The port was verified by reading both sources, and the Python tests assert MATLAB semantics for things like `movmean`, but no side-by-side run on real data has been done. That is the obvious next step, and until it is done "same numbers" is an intention rather than a measurement.
 
 ## Requirements
@@ -98,11 +105,12 @@ python/    the Python port
 | File | Purpose |
 |---|---|
 | `pulseplotter2.m` | The application. Run this one. |
-| `pulseplotter.mlapp` | Identical code as an App Designer package; use only when you need the visual canvas editor. |
+| `pulseplotter.mlapp` | App Designer package. Same analysis code, **older layout** - see the note below. |
 | `readpulsetable.m` | Reads any TagTracker pulse-log variant into a stable table. |
 | `kmzwrite.m` | Writes the KMZ. |
 | `geo2enu.m` / `enu2geo.m` | Geodetic ↔ local ENU conversion. |
 | `MONOPOLE_SCAN_MAPPING.m` | Standalone antenna-pattern analysis script sharing the same helpers. |
+| `check_layout.py` | Checks the app's grid layout declarations without needing MATLAB. |
 
 The four helper functions must sit alongside the app — it calls them by name. Moving the `.mlapp` on its own, or packaging it as a MATLAB App, breaks it unless the helpers come too.
 
@@ -116,6 +124,7 @@ The four helper functions must sit alongside the app — it calls them by name. 
 | `geodesy.py` | Geodetic ↔ local ENU conversion. |
 | `analysis.py` | Gridding, smoothing, gradient bearing, divergence. |
 | `test_core.py` / `test_gui.py` | Automated tests. |
+| `test_layout.py` | Layout audit: nothing clipped or overlapping at any window size. |
 
 See `python/README.md` for install and virtual-environment guidance.
 

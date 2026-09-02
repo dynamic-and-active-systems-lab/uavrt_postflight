@@ -7,10 +7,38 @@ outputs, same numbers.
 
 ![what it looks like](preview.png)
 
+*This screenshot predates the 2026-09-02 layout rework: the controls are now
+grouped into labelled sections, and the matplotlib toolbar sits between the
+plot and the range sliders rather than on top of them. Worth retaking.*
+
 ## Install
 
-You need Python 3.8 or newer. The only dependencies are numpy and matplotlib;
-`tkinter` ships with Python.
+You need Python 3.8 or newer **with Tk 8.6 or newer**. The only package
+dependencies are numpy and matplotlib (3.6 or newer, for constrained
+layout); `tkinter` ships with Python.
+
+> **macOS: check your Tk version first.** Apple's system Tk is **8.5.9**, from
+> 2010, and it is deprecated. The app will open a window and then paint almost
+> nothing — no controls, no axes, no error. Apple's Xcode command-line-tools
+> Python (`/Applications/Xcode.app/Contents/Developer/usr/bin/python3`) links
+> against it, and a venv built from that interpreter inherits the problem.
+>
+> ```bash
+> python3 -c "import tkinter; print(tkinter.TkVersion)"
+> ```
+>
+> If that prints `8.5`, install a Python that bundles Tk 8.6 — `brew install
+> python@3.12 python-tk@3.12`, or the installer from python.org — and build the
+> venv from that interpreter **by full path**, because Xcode's python3 may come
+> first on your PATH:
+>
+> ```bash
+> /opt/homebrew/bin/python3.12 -m venv .venv
+> source .venv/bin/activate
+> python -c "import tkinter; print(tkinter.TkVersion)"   # must be 8.6
+> ```
+>
+> Linux and Windows ship Tk 8.6 and are unaffected.
 
 **Use a virtual environment.** It keeps these packages out of your system
 Python, and on most modern systems a plain `pip install` will simply refuse to
@@ -154,6 +182,8 @@ KMZ renders correctly offline in the field.
 | `kmzwrite.py` | KMZ writer. |
 | `test_core.py` | Checks for everything except the GUI. |
 | `test_gui.py` | End-to-end check through the GUI, window hidden. |
+| `test_layout.py` | Layout audit at a range of window sizes. |
+| `diagnose_gui.py` | Prints the widget tree with its geometry. For debugging a window that renders wrongly. |
 
 The four modules below `pulseplotter.py` have no GUI dependency and can be
 imported on their own:
@@ -183,13 +213,23 @@ MATLAB's `readtable`.
 ```bash
 python test_core.py
 python test_gui.py
+python test_layout.py
 ```
 
 Both print a PASS/FAIL line per check. They use real logs from
 `FLIGHT_TESTING_DATA` when reachable and fall back to synthetic data otherwise,
 so they work on a machine that only has this directory.
 
-What is covered: all four log formats including rotation-row rejection;
+`test_layout.py` builds the real window at five sizes, from the enforced
+minimum to deliberately below it, and checks the geometry Tk actually
+produced: every widget got at least the size it asked for, nothing extends
+past the edge of its parent, no two widgets sharing a parent overlap, and the
+control column grows a scrollbar rather than losing its bottom rows. Tk
+silently hands a widget less room than it needs instead of raising anything,
+so this is the only way to catch cut-off text and controls drawn over each
+other short of looking at the window.
+
+What the other two cover: all four log formats including rotation-row rejection;
 `movmean` matching MATLAB's window convention exactly; geodesy agreeing with a
 rigorous ECEF transform to under 5 cm over a 1 km box; the bearing estimator
 being exact on synthetic fields with known answers and its confidence decaying
@@ -212,9 +252,24 @@ a different smoothing window or grid resolution rather than a porting error.
 ## Differences from the MATLAB version
 
 - The time and SNR ranges are two separate sliders each rather than one
-  two-handled slider; Tk has no native range widget.
+  two-handled slider; Tk has no native range widget. Their current bounds are
+  printed beside them, where the MATLAB version has read-only Start Time and
+  End Time fields in the control column instead.
 - A matplotlib toolbar is included, so you can zoom and pan, which the MATLAB
   version cannot do.
+- Plot Tag is a checkbox rather than a slider switch; Tk has no switch widget.
 - The KMZ export writes directly rather than going through a temporary `.kml`.
+
+## The window
+
+The control column is a fixed 262 px wide, so a long file name cannot widen it
+and squeeze the plot, and it scrolls when the window is too short rather than
+hiding the controls at the bottom — the same thing `GridLayout.Scrollable`
+does in the MATLAB app. The window will not resize below 900x560; at that size
+everything still has its natural size except the plot, which is the only part
+that gives up space.
+
+If you change the layout, run `test_layout.py` afterwards. Tk does not warn
+when a widget will not fit; it just draws it smaller, or not at all.
 
 The numbers are the same.
