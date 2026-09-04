@@ -187,16 +187,54 @@ Opens in Google Earth with three folders:
 Everything is self-contained: no images are fetched over the network, so the
 KMZ renders correctly offline in the field.
 
+## Field review (prototype)
+
+`fieldreview.py` is a second entry point with a deliberately smaller control
+set: the post-flight review meant to run on the Herelink one day, so an
+operator can read the strongest-signal position off the controller instead of
+carrying the log to a laptop. The specification is `docs/FIELD_REVIEW.md` in
+the hub repository; the report on what was built and how it did against known
+tag positions is [`../DOCS/fieldreview-prototype.pdf`](../DOCS/fieldreview-prototype.pdf).
+
+```bash
+python fieldreview.py Pulse-2025-11-21-11-08-41-149.csv --tag 42
+python fieldreview.py LOG --tag 42 --time 2 12 --alt 50 70 --png review.png --json review.json
+python fieldreview.py LOG --tag 42 --truth 54.327254 -2.966997     # validation
+```
+
+It prints the strongest-signal position in decimal degrees, any other lobe
+worth knowing about, a bearing with its confidence, and flags a weak surface
+or a peak on the edge of the flown area. **The position is where the signal
+peaked, not where the tag is**: on the flights with a known tag position it
+landed 20-50 m away, on the downhill side, which is what the field paper
+predicts. The report says so every time.
+
+The filters are tag, confirmed-only, a time window (opening on the flight
+proper), an altitude window and a lat/lon box. Grid spacing comes from the
+data: half the median pulse spacing, held between 60 and 300 cells across.
+The primitives (`select_pulses`, `grid_spacing`, `find_peaks`,
+`contour_polylines`) live in `analysis.py` and are shared with the bench app;
+`kmzwrite.py` now takes its contours from the same routine.
+
+`validate_fieldreview.py` reruns every case with known truth and regenerates
+the figures and tables in `../DOCS/figures/`. Its terrain checks download two
+elevation rasters into `data/dem/` on first use (about 45 MB, gitignored);
+`--no-dem` skips them.
+
 ## Files
 
 | File | Purpose |
 |---|---|
 | `pulseplotter.py` | The GUI. Run this. |
+| `fieldreview.py` | The field-review prototype: strongest signal, lobes, bearing, contours. |
 | `readpulsetable.py` | Reads any TagTracker pulse-log format. |
 | `geodesy.py` | Geodetic ↔ local ENU. |
 | `analysis.py` | Smoothing, gridding, bearing estimator. |
 | `kmzwrite.py` | KMZ writer. |
+| `dem.py` | Terrain sampling, for validating the field review only. |
+| `validate_fieldreview.py` | Runs the field review against flights with a known tag position. |
 | `test_core.py` | Checks for everything except the GUI. |
+| `test_fieldreview.py` | Checks for the field-review primitives and pipeline. |
 | `test_gui.py` | End-to-end check through the GUI, window hidden. |
 | `test_layout.py` | Layout audit at a range of window sizes. |
 | `diagnose_gui.py` | Prints the widget tree with its geometry. For debugging a window that renders wrongly. |
@@ -228,6 +266,7 @@ MATLAB's `readtable`.
 
 ```bash
 python test_core.py
+python test_fieldreview.py
 python test_gui.py
 python test_layout.py
 ```
