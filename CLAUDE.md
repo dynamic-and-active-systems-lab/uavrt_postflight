@@ -31,6 +31,30 @@ instead of carrying a USB stick to a laptop. **Read it before starting.** In sho
 If `../docs/` is absent you are working from a standalone clone of this repository rather
 than from inside the `uavrt` hub. Ask for the document; do not guess at the requirements.
 
+**Status, 2026-09-04: the Python prototype is built and validated.** `python/fieldreview.py`
+is the entry point, the primitives are in `analysis.py`, and
+`DOCS/fieldreview-prototype.pdf` (source `DOCS/fieldreview-prototype.tex`, figures from
+`python/validate_fieldreview.py`) is the report: methods with their maths, and results
+against the known tag positions. Things a later session should know:
+
+- **Ground truth.** Cumbria tags 40/41 and 42/43 sit at two sites whose positions are in
+  the PI's `Tag42_Above_60m_PROCESS.m` beside the logs. The two Ponui kiwi positions came
+  from the PI's field notebook on 2026-09-04 (case 1 −36.887851, 175.184943, tag 12, the
+  four flights of 2025-03-20; case 2 −36.886383, 175.178570, tag 24, the three flights of
+  2025-03-23). All are in `validate_fieldreview.py`. The case 1 value was first supplied
+  with a digit wrong; the flights themselves pointed to within 29 m of the real one.
+- **The peak is always at a pulse.** A linear interpolant's maximum is at a vertex, so the
+  strongest-signal position is a (smoothed) pulse position, never between flight lines.
+  Grid spacing cannot move it; smoothing can.
+- **The lobe rule is 10 dB window, 2 dB prominence, at most 3.** The 3 dB first proposed
+  never reported a second lobe on any real flight. The sweep is in the report.
+- **`python/data/` is gitignored.** `dem.py` caches two elevation rasters there (EA 1 m
+  DTM for Cumbria via WCS, Copernicus GLO-30 for Ponui); the validation downloads them on
+  first use.
+- **2023 logs have collapsed timestamps** (six significant figures), so time filtering and
+  the takeoff trim are meaningless on them, and consecutive pulses share positions.
+- Next step per `FIELD_REVIEW.md` §8: ask Don Gagne before touching TagTracker.
+
 ---
 
 ## Quick start
@@ -76,6 +100,9 @@ for an external edit.
 | `matlab/kmzwrite.m` | 341 | Writes the KMZ. Replaces the kmltoolbox. |
 | `matlab/MONOPOLE_SCAN_MAPPING.m` | 281 | Standalone analysis script; shares all four helpers. |
 | `matlab/check_layout.py` | 120 | Checks `createComponents`' grid declarations without MATLAB. |
+
+The Python port is in `python/`; see `python/README.md`. `python/fieldreview.py` is the
+field-review prototype (above), separate from `python/pulseplotter.py`.
 
 The four helpers **must sit alongside the app** — it calls them by name. Moving
 the `.mlapp` on its own, or packaging it as a MATLAB App, breaks it unless they

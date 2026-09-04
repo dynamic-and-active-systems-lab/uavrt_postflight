@@ -1,0 +1,14 @@
+Pulse-2025-11-21-11-08-41-149.csv: 1111 pulses, 13.3 min, tags 40 (490), 41 (65), 42 (520), 43 (36)
+Tag 42: 434 of 520 pulses selected
+  confirmed only; time 0.9-11.8 min (flight proper, takeoff and landing trimmed); altitude any; box none
+Grid 5.0 m (half the 10.0 m median pulse spacing; extent 570 x 428 m), 114 x 86 cells; smoothing 6 pulses
+Lobes reported when within 10 dB of the strongest and at least 2 dB above the saddle joining them to higher ground, at most 3
+Peak SNR 66.3 dB, surface median 35.2 dB, contrast 31.0 dB
+
+STRONGEST SIGNAL   54.32736, -2.96657   SNR 66.3 dB
+  This is where the signal peaked, not where the tag is. Expect the tag uphill of it, typically 20-30 m away (Mohammadi 2026).
+
+BEARING  174 deg (S) from 54.32895, -2.96620, the centre of the selection;  confidence 0.43, spread +-75 deg
+
+Truth 54.32725, -2.96700: strongest signal is 30 m away, to the ENE (67 deg) of the tag
+  bearing to truth from the selection centre 195 deg; estimate off by -21 deg

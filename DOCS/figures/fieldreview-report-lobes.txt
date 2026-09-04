@@ -1,0 +1,12 @@
+tags 40+42 merged: 1010 pulses, 13.3 min, tags 4042 (1010)
+Tag 4042: 863 of 1010 pulses selected
+  confirmed only; time 0.9-11.8 min (flight proper, takeoff and landing trimmed); altitude any; box none
+Grid 2.1 m (half the 4.2 m median pulse spacing; extent 570 x 428 m), 275 x 207 cells; smoothing 6 pulses
+Lobes reported when within 10 dB of the strongest and at least 2 dB above the saddle joining them to higher ground, at most 3
+Peak SNR 57.8 dB, surface median 29.6 dB, contrast 28.1 dB
+
+STRONGEST SIGNAL   54.32738, -2.96667   SNR 57.8 dB
+  This is where the signal peaked, not where the tag is. Expect the tag uphill of it, typically 20-30 m away (Mohammadi 2026).
+Other lobe         54.32738, -2.96811   SNR 51.3 dB, 6.5 dB weaker, 94 m to the W (270 deg), prominence 2.3 dB
+
+BEARING  174 deg (S) from 54.32895, -2.96618, the centre of the selection;  confidence 0.31, spread +-87 deg

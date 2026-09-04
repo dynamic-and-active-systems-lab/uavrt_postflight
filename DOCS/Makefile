@@ -10,11 +10,20 @@ LOGS   ?=
 pulseplotter-guide.pdf: pulseplotter-guide.tex $(wildcard figures/*)
 	latexmk -pdf -interaction=nonstopmode -halt-on-error $<
 
-.PHONY: figures screenshots clean all
-all: figures screenshots pulseplotter-guide.pdf
+# The field-review prototype report. Its figures and tables come from the
+# validation script, which needs the logs and, for terrain, a network on
+# first use (see ../python/dem.py).
+fieldreview-prototype.pdf: fieldreview-prototype.tex $(wildcard figures/fieldreview-*)
+	latexmk -pdf -interaction=nonstopmode -halt-on-error $<
+
+.PHONY: figures screenshots fieldreview-figures clean all
+all: figures screenshots pulseplotter-guide.pdf fieldreview-figures fieldreview-prototype.pdf
 
 figures:
 	$(PYTHON) make_figures.py $(LOGS)
+
+fieldreview-figures:
+	$(PYTHON) ../python/validate_fieldreview.py
 
 # macOS only, and needs Screen Recording permission. See make_screenshots.py.
 screenshots:
