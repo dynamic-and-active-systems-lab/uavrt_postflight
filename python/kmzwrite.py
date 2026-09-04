@@ -14,6 +14,8 @@ import numpy as np
 from matplotlib import colormaps
 import matplotlib.pyplot as plt
 
+import analysis
+
 N_POINT_BINS = 64
 N_LINE_BINS = 16
 
@@ -160,25 +162,21 @@ def kmzwrite(kmz_path,
         g_lo, g_hi = float(finite.min()), float(finite.max())
         if g_hi <= g_lo:
             g_hi = g_lo + 1.0
-        fig = plt.figure()
-        try:
-            cs = plt.contour(grid_lon, grid_lat, grid_value, levels=contour_levels)
-            segments = []
-            for level, paths in zip(cs.levels, cs.allsegs):
-                ci = int(np.clip(round((level - g_lo) / (g_hi - g_lo) * (N_LINE_BINS - 1)),
-                                 0, N_LINE_BINS - 1))
-                for path in paths:
-                    if len(path) < 2:
-                        continue
-                    coords = " ".join("%.8f,%.8f,0" % (x, y) for x, y in path)
-                    segments.append(
-                        '<Placemark><name>%.4g</name><styleUrl>#l%02d</styleUrl>'
-                        '<LineString><tessellate>1</tessellate>'
-                        '<altitudeMode>clampToGround</altitudeMode>'
-                        '<coordinates>%s</coordinates></LineString></Placemark>\n'
-                        % (level, ci, coords))
-        finally:
-            plt.close(fig)
+        # Contours are extracted in lon/lat directly, by the same routine the
+        # field review uses, so the two never disagree about where a line is.
+        segments = []
+        for level, paths in analysis.contour_polylines(
+                grid_lon, grid_lat, grid_value, int(contour_levels)):
+            ci = int(np.clip(round((level - g_lo) / (g_hi - g_lo) * (N_LINE_BINS - 1)),
+                             0, N_LINE_BINS - 1))
+            for path in paths:
+                coords = " ".join("%.8f,%.8f,0" % (x, y) for x, y in path)
+                segments.append(
+                    '<Placemark><name>%.4g</name><styleUrl>#l%02d</styleUrl>'
+                    '<LineString><tessellate>1</tessellate>'
+                    '<altitudeMode>clampToGround</altitudeMode>'
+                    '<coordinates>%s</coordinates></LineString></Placemark>\n'
+                    % (level, ci, coords))
         if segments:
             parts.append('<Folder><name>Contour lines</name>'
                          '<visibility>0</visibility>\n')
