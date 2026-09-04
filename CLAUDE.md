@@ -10,6 +10,29 @@ Everything here is toolbox-free: base MATLAB only. That is deliberate — see
 
 ---
 
+## Active work: the field review feature
+
+If you were pointed at `FIELD_REVIEW.md`, it lives one level up in the hub repository:
+**`../docs/FIELD_REVIEW.md`** (absolute: `/Users/mws22/Developer/uavrt/docs/FIELD_REVIEW.md`).
+
+That document is the specification for a post-flight review feature intended to run on the
+Herelink controller, so an operator can pick the strongest-signal position in the field
+instead of carrying a USB stick to a laptop. **Read it before starting.** In short:
+
+- Prototype in **`python/`**, as a **new entry point** — do not grow `pulseplotter.py`.
+- Shared primitives (peak finding, contour extraction, filters) go in **`analysis.py`** so
+  the bench app and the field prototype use one implementation.
+- `readpulsetable.py`, `geodesy.py` and `analysis.py`'s `build_grid` / `estimate_bearing`
+  are reusable as-is.
+- Do **not** touch `TagTracker` yet; `FIELD_REVIEW.md` §8 explains why.
+- Read the Hazards section below first regardless — MATLAB cannot be run here, App Designer
+  clobbers `.mlapp` edits, and MATLAB caches classdefs.
+
+If `../docs/` is absent you are working from a standalone clone of this repository rather
+than from inside the `uavrt` hub. Ask for the document; do not guess at the requirements.
+
+---
+
 ## Quick start
 
 ```matlab
